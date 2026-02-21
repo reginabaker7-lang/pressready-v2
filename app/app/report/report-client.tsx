@@ -108,7 +108,7 @@ export default function ReportClient() {
 
   return (
     <div className="report-page min-h-screen bg-[#0b0b0b] p-4 text-[#f5c400] sm:p-6">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 sm:gap-7">
+      <div className="report-shell mx-auto flex w-full max-w-4xl flex-col gap-6 sm:gap-7">
         <div className="no-print flex flex-wrap items-center gap-3">
           <Link
             href="/check"

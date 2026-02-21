@@ -47,14 +47,16 @@ a:hover {
     color: #111 !important;
   }
 
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
   nav,
   header,
   footer {
     display: none !important;
-  }
-
-  .report-page header {
-    display: block !important;
   }
 
   .no-print {
@@ -71,6 +73,7 @@ a:hover {
   .report-card {
     border: 1px solid #d2d2d2 !important;
     box-shadow: none !important;
+    background: #fff !important;
     break-inside: avoid;
     page-break-inside: avoid;
   }
