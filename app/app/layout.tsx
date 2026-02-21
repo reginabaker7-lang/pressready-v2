@@ -20,6 +20,7 @@ export default function RootLayout({
             <Link href="/">Home</Link>
             <Link href="/check">Design Check</Link>
             <Link href="/how-it-works">How It Works</Link>
+            <Link href="/history">History</Link>
           </nav>
         </header>
         <main className="mx-auto w-full max-w-5xl px-6 py-12">{children}</main>

@@ -21,6 +21,10 @@ export type StoredReport = {
   results: StoredReportResult[];
 };
 
+export type StoredReportWithSummary = StoredReport & {
+  summaryText: string;
+};
+
 type StoredReportHistory = {
   latestId: string | null;
   reports: StoredReport[];
@@ -85,6 +89,28 @@ const sanitizeReport = (value: unknown): StoredReport | null => {
   };
 };
 
+const statusLabelMap: Record<StoredStatus, string> = {
+  pass: "PASS",
+  warning: "WARN",
+  error: "FAIL",
+};
+
+const buildSummaryText = (report: StoredReport): string =>
+  [
+    "PressReady DTF Report",
+    report.fileName ? `File: ${report.fileName}` : null,
+    report.imageWidthPx && report.imageHeightPx ? `Size: ${report.imageWidthPx}x${report.imageHeightPx} px` : null,
+    report.printWidthIn ? `Print width: ${report.printWidthIn} in` : null,
+    report.shirtColor ? `Shirt: ${report.shirtColor} | White ink: ${report.whiteInk ? "yes" : "no"}` : null,
+    ...report.results.map((result) => {
+      const fixText = result.fix ? ` — Fix: ${result.fix}` : "";
+      const detailText = result.detail ? result.detail : result.title;
+      return `- ${statusLabelMap[result.status]}: ${detailText}${fixText}`;
+    }),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
 export const readReportHistory = (storage: Storage): StoredReportHistory => {
   try {
     const raw = storage.getItem(REPORT_STORAGE_KEY);
@@ -119,6 +145,12 @@ export const readReportHistory = (storage: Storage): StoredReportHistory => {
   }
 };
 
+export const loadHistory = (storage: Storage): StoredReportWithSummary[] =>
+  readReportHistory(storage).reports.map((report) => ({
+    ...report,
+    summaryText: buildSummaryText(report),
+  }));
+
 export const saveReportToHistory = (storage: Storage, report: StoredReport): void => {
   const history = readReportHistory(storage);
 
@@ -136,6 +168,24 @@ export const saveReportToHistory = (storage: Storage, report: StoredReport): voi
       reports,
     }),
   );
+};
+
+export const deleteFromHistory = (storage: Storage, id: string): void => {
+  const history = readReportHistory(storage);
+  const reports = history.reports.filter((report) => report.id !== id);
+  const latestId = reports.some((report) => report.id === history.latestId) ? history.latestId : reports[0]?.id ?? null;
+
+  storage.setItem(
+    REPORT_STORAGE_KEY,
+    JSON.stringify({
+      latestId,
+      reports,
+    }),
+  );
+};
+
+export const clearHistory = (storage: Storage): void => {
+  storage.removeItem(REPORT_STORAGE_KEY);
 };
 
 export const getReportFromHistory = (storage: Storage, params: { id?: string | null; latest?: string | null }): StoredReport | null => {
