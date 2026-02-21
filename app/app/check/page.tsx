@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { StoredReport, StoredReportResult, StoredStatus, saveToHistory } from "../lib/history";
 
 import {
   saveReportToHistory,
@@ -104,25 +105,25 @@ export default function DesignCheckPage() {
     const effectiveDPI = imageWidthPx / printWidthIn;
     const roundedDPI = Math.round(effectiveDPI);
 
-    const transparencyCard: ResultCard = isJpg
+    const transparencyCard: StoredReportResult = isJpg
       ? {
           title: "Transparency check",
-          status: "Warning",
+          status: "WARN",
           message: "JPG cannot be transparent.",
           suggestion:
             "Use PNG or SVG if you need transparent background areas.",
         }
       : {
           title: "Transparency check",
-          status: "Pass",
+          status: "PASS",
           message: "OK (Transparency supported).",
         };
 
-    const resolutionCard: ResultCard =
+    const resolutionCard: StoredReportResult =
       effectiveDPI < 150
         ? {
             title: "Resolution (effective DPI)",
-            status: "Error",
+            status: "FAIL",
             message: `Effective DPI: ${roundedDPI}.`,
             suggestion:
               "Increase image pixel width or reduce print width to reach at least 220 DPI.",
@@ -130,43 +131,43 @@ export default function DesignCheckPage() {
         : effectiveDPI < 220
           ? {
               title: "Resolution (effective DPI)",
-              status: "Warning",
+              status: "WARN",
               message: `Effective DPI: ${roundedDPI}.`,
-              suggestion: "For stronger print sharpness, target 220+ DPI.",
+              details: ["For stronger print sharpness, target 220+ DPI."],
             }
           : {
               title: "Resolution (effective DPI)",
-              status: "Pass",
+              status: "PASS",
               message: `Effective DPI: ${roundedDPI}.`,
             };
 
-    const whiteInkCard: ResultCard =
+    const whiteInkCard: StoredReportResult =
       shirtColor === "Dark" && !whiteInk
         ? {
             title: "Dark shirt + white ink",
-            status: "Error",
+            status: "FAIL",
             message: "High risk: no white ink.",
             suggestion:
               "Enable white ink for dark garments to preserve color vibrancy.",
           }
         : {
             title: "Dark shirt + white ink",
-            status: "Pass",
+            status: "PASS",
             message: "Configuration looks safe for garment color.",
           };
 
-    const detailCard: ResultCard =
+    const detailCard: StoredReportResult =
       imageWidthPx < 2000
         ? {
             title: "Small details risk",
-            status: "Warning",
+            status: "WARN",
             message: "May lose fine details when printed large.",
             suggestion:
               "Use a wider source image to better preserve intricate elements.",
           }
         : {
             title: "Small details risk",
-            status: "Pass",
+            status: "PASS",
             message: "Pixel width is likely sufficient for finer details.",
           };
 
