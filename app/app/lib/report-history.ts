@@ -31,6 +31,7 @@ type StoredReportHistory = {
 };
 
 export const REPORT_STORAGE_KEY = "pressready_report_v1";
+const GENERATED_AT_DEDUPE_WINDOW_MS = 60_000;
 
 const isStoredStatus = (value: unknown): value is StoredStatus =>
   value === "pass" || value === "warning" || value === "error";
@@ -158,6 +159,59 @@ export const saveReportToHistory = (storage: Storage, report: StoredReport): voi
     ...report,
     results: report.results ?? [],
   };
+
+  const normalizedResultsSignature = JSON.stringify(
+    normalizedReport.results.map((result) => ({
+      status: result.status,
+      title: result.title,
+      detail: result.detail,
+      fix: result.fix,
+      suggestion: result.suggestion,
+    })),
+  );
+
+  const isWithinGeneratedAtWindow = (left: string, right: string): boolean => {
+    const leftMs = new Date(left).getTime();
+    const rightMs = new Date(right).getTime();
+
+    if (Number.isNaN(leftMs) || Number.isNaN(rightMs)) {
+      return false;
+    }
+
+    return Math.abs(leftMs - rightMs) <= GENERATED_AT_DEDUPE_WINDOW_MS;
+  };
+
+  const duplicateReport = history.reports.find((existingReport) => {
+    if (existingReport.fileName !== normalizedReport.fileName) {
+      return false;
+    }
+
+    const existingResultsSignature = JSON.stringify(
+      existingReport.results.map((result) => ({
+        status: result.status,
+        title: result.title,
+        detail: result.detail,
+        fix: result.fix,
+        suggestion: result.suggestion,
+      })),
+    );
+
+    return (
+      existingResultsSignature === normalizedResultsSignature ||
+      isWithinGeneratedAtWindow(existingReport.createdAt, normalizedReport.createdAt)
+    );
+  });
+
+  if (duplicateReport) {
+    storage.setItem(
+      REPORT_STORAGE_KEY,
+      JSON.stringify({
+        latestId: duplicateReport.id,
+        reports: history.reports,
+      }),
+    );
+    return;
+  }
 
   const reports = [normalizedReport, ...history.reports.filter((item) => item.id !== normalizedReport.id)].slice(0, 20);
 
