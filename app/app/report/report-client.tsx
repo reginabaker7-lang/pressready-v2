@@ -15,6 +15,14 @@ const statusLabelMap: Record<StoredStatus, string> = {
   error: "FAIL",
 };
 
+function formatReportValue(label: string, value?: string) {
+  if (!value) return value;
+  if (label === "Shirt color") {
+    return value.replace(/\b[a-z]/g, (char) => char.toUpperCase());
+  }
+  return value;
+}
+
 export default function ReportClient() {
   const [report] = useState<Report | null>(() => {
     if (typeof window === "undefined") return null;
@@ -96,7 +104,7 @@ export default function ReportClient() {
 
   return (
     <div className="min-h-screen bg-[#0b0b0b] p-4 text-[#f5c400] sm:p-6">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 sm:gap-6">
         <div className="no-print flex flex-wrap items-center gap-3">
           <Link
             href="/check"
@@ -122,7 +130,7 @@ export default function ReportClient() {
 
         <div className="report-shell overflow-hidden rounded-2xl border border-[#5f4d10] bg-gradient-to-b from-[#0f0f0f] to-[#090909] p-5 shadow-[0_0_0_1px_rgba(212,175,55,0.15)] sm:p-7 print:rounded-none print:border-none print:bg-white print:p-0 print:shadow-none">
           <header className="mb-6 border-b border-[#5f4d10] pb-4 print:border-black/30">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-sm uppercase tracking-[0.18em] text-[#f8df6d] print:text-black">PressReady</p>
                 <h1 className="text-3xl font-extrabold text-[#f5c400] print:text-black">DTF Readiness Report</h1>
@@ -131,15 +139,15 @@ export default function ReportClient() {
             </div>
           </header>
 
-          <section className="report-card mb-5 rounded-xl border border-[#4a3f11] bg-[#141414] p-4 print:border-black/20 print:bg-white">
+          <section className="report-card mb-7 rounded-xl border border-[#4a3f11] bg-[#141414] p-5 print:border-black/20 print:bg-white">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#f8df6d] print:text-black">Report Details</h2>
             <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               {details
                 .filter((item) => Boolean(item.value))
                 .map((item) => (
                   <div key={item.label} className="rounded-lg border border-[#3f330a] bg-[#0f0f0f] p-3 print:border-black/15 print:bg-white">
-                    <dt className="text-xs uppercase tracking-wide text-[#d4b95a] print:text-black/70">{item.label}</dt>
-                    <dd className="mt-1 font-semibold text-[#f8df6d] print:text-black">{item.value}</dd>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-[#e4cb72] print:text-black/70">{item.label}</dt>
+                    <dd className="mt-1 font-semibold text-[#fdeaa2] print:text-black">{formatReportValue(item.label, item.value)}</dd>
                   </div>
                 ))}
             </dl>
@@ -151,15 +159,15 @@ export default function ReportClient() {
               {(report.results ?? []).map((result, idx) => (
                 <article
                   key={`${result.title}-${idx}`}
-                  className="report-card rounded-xl border border-[#4a3f11] bg-[#141414] p-4 print:border-black/20 print:bg-white"
+                  className="report-card rounded-xl border border-[#4a3f11] bg-[#141414] p-5 print:border-black/20 print:bg-white"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="text-lg font-semibold text-[#f5c400] print:text-black">{result.title}</h3>
+                  <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
+                    <h3 className="max-w-full break-words text-lg font-semibold text-[#f5c400] print:text-black">{result.title}</h3>
                     <StatusBadge status={result.status} />
                   </div>
-                  {result.detail ? <p className="mt-2 text-sm text-[#f8df6d] print:text-black">{result.detail}</p> : null}
+                  {result.detail ? <p className="mt-2 break-words text-sm text-[#f8df6d] print:text-black">{result.detail}</p> : null}
                   {result.fix ? (
-                    <p className="mt-2 text-sm text-[#f8df6d] print:text-black">
+                    <p className="mt-2 break-words text-sm text-[#f8df6d] print:text-black">
                       <span className="font-semibold">Suggested fix:</span> {result.fix}
                     </p>
                   ) : null}
@@ -186,7 +194,7 @@ function StatusBadge({ status, large = false }: { status: OverallStatus | Stored
   return (
     <span
       className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold tracking-wide ${tone} ${
-        large ? "text-sm" : ""
+        large ? "px-4 py-1.5 text-base" : ""
       }`}
     >
       {text}
