@@ -2,19 +2,14 @@
 
 import Link from "next/link";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
-import {
-  ResultCard,
-  CheckStatus,
-  saveReportToHistory,
-  StoredReport,
-} from "../lib/report-history";
+import { StoredReport, StoredReportResult, StoredStatus, saveToHistory } from "../lib/history";
 
 type ShirtColor = "Light" | "Dark";
 
-const statusClasses: Record<CheckStatus, string> = {
-  Pass: "border-emerald-400 text-emerald-300",
-  Warning: "border-amber-400 text-amber-300",
-  Error: "border-rose-400 text-rose-300",
+const statusClasses: Record<StoredStatus, string> = {
+  PASS: "border-emerald-400 text-emerald-300",
+  WARN: "border-amber-400 text-amber-300",
+  FAIL: "border-rose-400 text-rose-300",
 };
 
 export default function DesignCheckPage() {
@@ -25,7 +20,7 @@ export default function DesignCheckPage() {
   const [printWidthIn, setPrintWidthIn] = useState<number>(12);
   const [shirtColor, setShirtColor] = useState<ShirtColor>("Dark");
   const [whiteInk, setWhiteInk] = useState<boolean>(true);
-  const [results, setResults] = useState<ResultCard[] | null>(null);
+  const [results, setResults] = useState<StoredReportResult[] | null>(null);
   const [latestReportId, setLatestReportId] = useState<string | null>(null);
 
   const acceptedTypes = useMemo(() => ["image/png", "image/jpeg", "image/svg+xml"], []);
@@ -87,84 +82,100 @@ export default function DesignCheckPage() {
     const effectiveDPI = imageWidthPx / printWidthIn;
     const roundedDPI = Math.round(effectiveDPI);
 
-    const transparencyCard: ResultCard = isJpg
+    const transparencyCard: StoredReportResult = isJpg
       ? {
           title: "Transparency check",
-          status: "Warning",
+          status: "WARN",
           message: "JPG cannot be transparent.",
-          suggestion: "Use PNG or SVG if you need transparent background areas.",
+          details: ["Use PNG or SVG if you need transparent background areas."],
         }
       : {
           title: "Transparency check",
-          status: "Pass",
+          status: "PASS",
           message: "OK (Transparency supported).",
         };
 
-    const resolutionCard: ResultCard =
+    const resolutionCard: StoredReportResult =
       effectiveDPI < 150
         ? {
             title: "Resolution (effective DPI)",
-            status: "Error",
+            status: "FAIL",
             message: `Effective DPI: ${roundedDPI}.`,
-            suggestion: "Increase image pixel width or reduce print width to reach at least 220 DPI.",
+            details: ["Increase image pixel width or reduce print width to reach at least 220 DPI."],
           }
         : effectiveDPI < 220
           ? {
               title: "Resolution (effective DPI)",
-              status: "Warning",
+              status: "WARN",
               message: `Effective DPI: ${roundedDPI}.`,
-              suggestion: "For stronger print sharpness, target 220+ DPI.",
+              details: ["For stronger print sharpness, target 220+ DPI."],
             }
           : {
               title: "Resolution (effective DPI)",
-              status: "Pass",
+              status: "PASS",
               message: `Effective DPI: ${roundedDPI}.`,
             };
 
-    const whiteInkCard: ResultCard =
+    const whiteInkCard: StoredReportResult =
       shirtColor === "Dark" && !whiteInk
         ? {
             title: "Dark shirt + white ink",
-            status: "Error",
+            status: "FAIL",
             message: "High risk: no white ink.",
-            suggestion: "Enable white ink for dark garments to preserve color vibrancy.",
+            details: ["Enable white ink for dark garments to preserve color vibrancy."],
           }
         : {
             title: "Dark shirt + white ink",
-            status: "Pass",
+            status: "PASS",
             message: "Configuration looks safe for garment color.",
           };
 
-    const detailCard: ResultCard =
+    const detailCard: StoredReportResult =
       imageWidthPx < 2000
         ? {
             title: "Small details risk",
-            status: "Warning",
+            status: "WARN",
             message: "May lose fine details when printed large.",
-            suggestion: "Use a wider source image to better preserve intricate elements.",
+            details: ["Use a wider source image to better preserve intricate elements."],
           }
         : {
             title: "Small details risk",
-            status: "Pass",
+            status: "PASS",
             message: "Pixel width is likely sufficient for finer details.",
           };
 
     const nextResults = [transparencyCard, resolutionCard, whiteInkCard, detailCard];
+    const overallStatus: StoredStatus = nextResults.some((item) => item.status === "FAIL")
+      ? "FAIL"
+      : nextResults.some((item) => item.status === "WARN")
+        ? "WARN"
+        : "PASS";
+    const generatedAt = new Date().toISOString();
     const report: StoredReport = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      createdAt: new Date().toISOString(),
-      fileName: uploadedFile.name,
-      inputs: {
+      title: uploadedFile.name,
+      status: overallStatus,
+      generatedAt,
+      results: nextResults,
+      summaryText: [
+        `Report: ${uploadedFile.name}`,
+        `Generated: ${new Date(generatedAt).toLocaleString()}`,
+        ...nextResults.map(
+          (item) =>
+            `${item.status} - ${item.title}${item.message ? `: ${item.message}` : ""}${
+              item.details?.length ? ` (${item.details.join("; ")})` : ""
+            }`,
+        ),
+      ].join("\n"),
+      meta: {
+        imageSize: `${imageWidthPx}×${imageHeightPx}px`,
         printWidthIn,
         shirtColor,
         whiteInk,
-        imageWidthPx,
-        imageHeightPx,
       },
-      results: nextResults,
     };
 
-    saveReportToHistory(report);
+    saveToHistory(report);
     setLatestReportId(report.id);
     setResults(nextResults);
   };
@@ -281,9 +292,11 @@ export default function DesignCheckPage() {
                 <p className="text-xs font-bold uppercase tracking-wider">{result.status}</p>
                 <h3 className="mt-1 text-lg font-semibold text-[#f5c400]">{result.title}</h3>
                 <p className="mt-2 text-sm text-[#f5e7ab]">{result.message}</p>
-                {result.suggestion && (
-                  <p className="mt-2 text-sm text-[#f8df6d]">Fix: {result.suggestion}</p>
-                )}
+                {result.details?.map((detail) => (
+                  <p className="mt-2 text-sm text-[#f8df6d]" key={detail}>
+                    Fix: {detail}
+                  </p>
+                ))}
               </article>
             ))}
           </div>
