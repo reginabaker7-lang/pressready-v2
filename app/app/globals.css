@@ -35,3 +35,35 @@ a:hover {
   text-decoration: underline;
   text-underline-offset: 0.2rem;
 }
+
+@media print {
+  @page {
+    margin: 0.5in;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .report-shell {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .report-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  a,
+  a:visited {
+    color: #111 !important;
+    text-decoration: underline;
+  }
+}
