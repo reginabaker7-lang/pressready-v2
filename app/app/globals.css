@@ -47,16 +47,39 @@ a:hover {
     color: #111 !important;
   }
 
+  nav,
+  header,
+  footer {
+    display: none !important;
+  }
+
+  .report-page header {
+    display: block !important;
+  }
+
   .no-print {
     display: none !important;
   }
 
-  .report-shell {
+  .report-page,
+  .report-shell,
+  .report-page-card {
     background: #fff !important;
     color: #111 !important;
   }
 
   .report-card {
+    border: 1px solid #d2d2d2 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-card > *,
+  .report-card section,
+  .report-card article,
+  .report-card dl,
+  .report-card div {
     break-inside: avoid;
     page-break-inside: avoid;
   }
