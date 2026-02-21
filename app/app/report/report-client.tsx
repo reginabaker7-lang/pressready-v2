@@ -22,6 +22,7 @@ const statusLabelMap: Record<ReportStatus, string> = {
 function formatReportValue(label: string, value?: string) {
   if (!value) return value;
   if (label === "Shirt color") {
+    if (value.toLowerCase() === "dark") return "Dark";
     return value.replace(/\b[a-z]/g, (char) => char.toUpperCase());
   }
   return value;
@@ -138,8 +139,8 @@ export default function ReportClient() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0b0b0b] p-4 text-[#f5c400] sm:p-6">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 sm:gap-6">
+    <div className="report-page min-h-screen bg-[#0b0b0b] p-4 text-[#f5c400] sm:p-6">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 sm:gap-7">
         <div className="no-print flex flex-wrap items-center gap-3">
           <Link
             href="/check"
@@ -169,40 +170,35 @@ export default function ReportClient() {
           </button>
         </div>
 
-        <div className="report-shell overflow-hidden rounded-2xl border border-[#5f4d10] bg-gradient-to-b from-[#0f0f0f] to-[#090909] p-5 shadow-[0_0_0_1px_rgba(212,175,55,0.15)] sm:p-7 print:rounded-none print:border-none print:bg-white print:p-0 print:shadow-none">
-          <header className="mb-6 border-b border-[#5f4d10] pb-4 print:border-zinc-300">
-            <p className="text-sm uppercase tracking-[0.28em] text-[#f5c400]/80 print:text-zinc-600">
-              PressReady DTF Report
-            </p>
-            <h1 className="mt-2 text-3xl font-bold text-[#f5c400] print:text-zinc-900">
-              Overall: {statusLabelMap[overallStatus]}
-            </h1>
+        <div className="report-page-card report-card overflow-hidden rounded-2xl border border-[#5f4d10] bg-gradient-to-b from-[#0f0f0f] to-[#090909] p-5 shadow-[0_0_0_1px_rgba(212,175,55,0.15)] sm:p-7 print:rounded-none print:bg-white print:p-0 print:shadow-none">
+          <header className="mb-7 border-b border-[#5f4d10] pb-4 print:border-black/30">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm uppercase tracking-[0.18em] text-[#f8df6d] print:text-black">PressReady</p>
+                <h1 className="text-3xl font-extrabold text-[#f5c400] print:text-black">DTF Readiness Report</h1>
+              </div>
+              <StatusBadge status={overallStatus} large className="self-center sm:self-start" />
+            </div>
           </header>
 
-          <dl className="mb-6 grid gap-3 sm:grid-cols-2">
-            {details.map(({ label, value }) => {
-              if (!value) return null;
+          <section className="report-card mb-7 rounded-xl border border-[#4a3f11] bg-[#141414] p-5 print:border-black/20 print:bg-white">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#f8df6d] print:text-black">Report Details</h2>
+            <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+              {details
+                .filter((item) => Boolean(item.value))
+                .map((item) => (
+                  <div key={item.label} className="rounded-lg border border-[#3f330a] bg-[#0f0f0f] p-3 print:border-black/15 print:bg-white">
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-[#f8df6d] print:text-black/75">{item.label}</dt>
+                    <dd className="mt-1 font-semibold text-[#fdeaa2] print:text-black">{formatReportValue(item.label, item.value)}</dd>
+                  </div>
+                ))}
+            </dl>
+          </section>
 
-              const displayValue = formatReportValue(label, value);
-              if (!displayValue) return null;
-
-              return (
-                <div key={label} className="rounded-xl border border-[#5f4d10] bg-[#121212] p-3 print:border-zinc-300 print:bg-white">
-                  <dt className="text-xs font-semibold uppercase tracking-wider text-[#f5c400]/70 print:text-zinc-500">
-                    {label}
-                  </dt>
-                  <dd className="mt-1 text-base font-medium text-[#f5f0cc] print:text-zinc-900">
-                    {displayValue}
-                  </dd>
-                </div>
-              );
-            })}
-          </dl>
-
-          <section className="space-y-3">
-            <h2 className="text-xl font-semibold text-[#f5c400] print:text-zinc-900">Checks</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {report.reportData.results.map((result, index) => (
+          <section>
+            <h2 className="mb-3 text-xl font-bold text-[#f8df6d] print:text-black">Check Results</h2>
+            <div className="space-y-4">
+              {(report.results ?? []).map((result, idx) => (
                 <article
                   key={`${result.title}-${index}`}
                   className="report-card rounded-xl border border-[#5f4d10] bg-[#121212] p-4 print:border-zinc-300 print:bg-white"
@@ -224,5 +220,34 @@ export default function ReportClient() {
         </div>
       </div>
     </div>
+  );
+}
+
+function StatusBadge({
+  status,
+  large = false,
+  className = "",
+}: {
+  status: OverallStatus | StoredStatus;
+  large?: boolean;
+  className?: string;
+}) {
+  const tone =
+    status === "pass"
+      ? "border-emerald-400/60 bg-emerald-500/15 text-emerald-200 print:border-emerald-700 print:bg-transparent print:text-emerald-800"
+      : status === "warning"
+        ? "border-amber-300/70 bg-amber-400/15 text-amber-100 print:border-amber-700 print:bg-transparent print:text-amber-800"
+        : "border-rose-400/70 bg-rose-400/15 text-rose-100 print:border-rose-700 print:bg-transparent print:text-rose-800";
+
+  const text = statusLabelMap[status as StoredStatus] ?? "FAIL";
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold tracking-wide ${tone} ${
+        large ? "px-4 py-1.5 text-base" : ""
+      } ${className}`}
+    >
+      {text}
+    </span>
   );
 }
