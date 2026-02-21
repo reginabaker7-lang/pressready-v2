@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import {
+  ResultCard,
+  CheckStatus,
+  saveReportToHistory,
+  StoredReport,
+} from "../lib/report-history";
 
 import {
   saveReportToHistory,
