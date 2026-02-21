@@ -6,6 +6,7 @@ export type StoredReportResult = {
   title: string;
   detail?: string;
   fix?: string;
+  suggestion?: string;
 };
 
 export type StoredReport = {
@@ -46,6 +47,7 @@ const sanitizeResult = (value: unknown): StoredReportResult | null => {
     title: candidate.title,
     detail: typeof candidate.detail === "string" ? candidate.detail : undefined,
     fix: typeof candidate.fix === "string" ? candidate.fix : undefined,
+    suggestion: typeof candidate.suggestion === "string" ? candidate.suggestion : undefined,
   };
 };
 
