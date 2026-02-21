@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
+import { addReportToHistory, type ReportStatus, type StoredReport } from "@/app/lib/history";
+
 type ShirtColor = "Light" | "Dark";
 type CheckStatus = "Pass" | "Warning" | "Error";
-type StoredShirtColor = "light" | "dark";
-type StoredStatus = "pass" | "warning" | "error";
 
 type ResultCard = {
   title: string;
@@ -16,31 +16,16 @@ type ResultCard = {
   suggestion?: string;
 };
 
-type StoredReportResult = {
-  status: StoredStatus;
-  title: string;
-  detail?: string;
-  fix?: string;
-};
-
-type StoredReport = {
-  id: string;
-  createdAt: string;
-  fileName: string;
-  imageWidthPx: number;
-  imageHeightPx: number;
-  printWidthIn: number;
-  shirtColor: StoredShirtColor;
-  whiteInk: boolean;
-  results: StoredReportResult[];
-};
-
-const REPORT_STORAGE_KEY = "pressready_report_v1";
-
 const statusClasses: Record<CheckStatus, string> = {
   Pass: "border-emerald-400 text-emerald-300",
   Warning: "border-amber-400 text-amber-300",
   Error: "border-rose-400 text-rose-300",
+};
+
+const getReportStatus = (results: ResultCard[]): ReportStatus => {
+  if (results.some((result) => result.status === "Error")) return "FAIL";
+  if (results.some((result) => result.status === "Warning")) return "WARN";
+  return "PASS";
 };
 
 export default function DesignCheckPage() {
@@ -106,6 +91,60 @@ export default function DesignCheckPage() {
     image.src = nextPreviewUrl;
     setUploadedFile(file);
     setPreviewUrl(nextPreviewUrl);
+  };
+
+  const toStoredStatus = (status: CheckStatus): ReportStatus => {
+    if (status === "Pass") return "PASS";
+    if (status === "Warning") return "WARN";
+    return "FAIL";
+  };
+
+  const createSummaryText = (nextResults: ResultCard[]) => {
+    if (!uploadedFile || !imageWidthPx || !imageHeightPx) return "";
+
+    return [
+      "PressReady DTF Report",
+      `File: ${uploadedFile.name}`,
+      `Size: ${imageWidthPx}x${imageHeightPx} px`,
+      `Print width: ${printWidthIn} in`,
+      `Shirt: ${shirtColor.toLowerCase()} | White ink: ${whiteInk ? "yes" : "no"}`,
+      ...nextResults.map((result) => {
+        const fixText = result.suggestion ? ` — Fix: ${result.suggestion}` : "";
+        return `- ${result.status.toUpperCase()}: ${result.message}${fixText}`;
+      }),
+    ].join("\n");
+  };
+
+  const buildReport = (nextResults: ResultCard[]): StoredReport | null => {
+    if (!uploadedFile || !imageWidthPx || !imageHeightPx || printWidthIn <= 0) {
+      return null;
+    }
+
+    const generatedAt = new Date().toISOString();
+    return {
+      id:
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      title: uploadedFile.name,
+      status: getReportStatus(nextResults),
+      generatedAt,
+      summaryText: createSummaryText(nextResults),
+      reportData: {
+        fileName: uploadedFile.name,
+        imageWidthPx,
+        imageHeightPx,
+        printWidthIn,
+        shirtColor: shirtColor.toLowerCase() as "light" | "dark",
+        whiteInk,
+        results: nextResults.map((result) => ({
+          status: toStoredStatus(result.status),
+          title: result.title,
+          detail: result.message,
+          fix: result.suggestion,
+        })),
+      },
+    };
   };
 
   const runChecks = () => {
@@ -193,87 +232,22 @@ export default function DesignCheckPage() {
       whiteInkCard,
       detailCard,
     ];
+
     setResults(nextResults);
-    saveReport(nextResults);
-  };
-
-  const toStoredStatus = (status: CheckStatus): StoredStatus => {
-    if (status === "Pass") {
-      return "pass";
-    }
-
-    if (status === "Warning") {
-      return "warning";
-    }
-
-    return "error";
-  };
-
-  const buildReport = (nextResults: ResultCard[]): StoredReport | null => {
-    if (!uploadedFile || !imageWidthPx || !imageHeightPx || printWidthIn <= 0) {
-      return null;
-    }
-
-    return {
-      id:
-        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-      createdAt: new Date().toISOString(),
-      fileName: uploadedFile.name,
-      imageWidthPx,
-      imageHeightPx,
-      printWidthIn,
-      shirtColor: shirtColor.toLowerCase() as StoredShirtColor,
-      whiteInk,
-      results: nextResults.map((result) => ({
-        status: toStoredStatus(result.status),
-        title: result.title,
-        detail: result.message,
-        fix: result.suggestion,
-      })),
-    };
-  };
-
-  const saveReport = (nextResults: ResultCard[]): StoredReport | null => {
     const report = buildReport(nextResults);
-
-    if (!report) {
-      return null;
-    }
-
-    localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(report));
-    return report;
+    if (report) addReportToHistory(report);
   };
 
   const handleCopySummary = async () => {
-    if (!results || !uploadedFile || !imageWidthPx || !imageHeightPx) {
-      return;
-    }
+    if (!results) return;
 
-    const summary = [
-      "PressReady DTF Report",
-      `File: ${uploadedFile.name}`,
-      `Size: ${imageWidthPx}x${imageHeightPx} px`,
-      `Print width: ${printWidthIn} in`,
-      `Shirt: ${shirtColor.toLowerCase()} | White ink: ${whiteInk ? "yes" : "no"}`,
-      ...results.map((result) => {
-        const fixText = result.suggestion ? ` — Fix: ${result.suggestion}` : "";
-        return `- ${result.status.toUpperCase()}: ${result.message}${fixText}`;
-      }),
-    ].join("\n");
-
-    await navigator.clipboard.writeText(summary);
+    await navigator.clipboard.writeText(createSummaryText(results));
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownloadPdf = () => {
-    if (!results) {
-      return;
-    }
-
-    saveReport(results);
+    if (!results) return;
     router.push("/report?latest=1");
   };
 

@@ -1,18 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
-import { REPORT_STORAGE_KEY, type StoredReport, type StoredStatus } from "@/app/lib/report-history";
+import {
+  getLatestReport,
+  getReportById,
+  migrateLegacyReport,
+  type ReportStatus,
+} from "@/app/lib/history";
 
-type Report = StoredReport;
+type OverallStatus = ReportStatus;
 
-type OverallStatus = "pass" | "warning" | "error";
-
-const statusLabelMap: Record<StoredStatus, string> = {
-  pass: "PASS",
-  warning: "WARN",
-  error: "FAIL",
+const statusLabelMap: Record<ReportStatus, string> = {
+  PASS: "PASS",
+  WARN: "WARN",
+  FAIL: "FAIL",
 };
 
 function formatReportValue(label: string, value?: string) {
@@ -25,50 +29,60 @@ function formatReportValue(label: string, value?: string) {
 }
 
 export default function ReportClient() {
-  const [report] = useState<Report | null>(() => {
-    if (typeof window === "undefined") return null;
-
-    try {
-      const raw = localStorage.getItem(REPORT_STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as Report) : null;
-    } catch {
-      return null;
-    }
-  });
+  const searchParams = useSearchParams();
   const [copied, setCopied] = useState(false);
 
+  const { report, notFoundMessage } = useMemo(() => {
+    if (typeof window === "undefined") {
+      return { report: null, notFoundMessage: "Loading report..." };
+    }
+
+    migrateLegacyReport();
+
+    const latest = searchParams.get("latest");
+    const reportId = searchParams.get("id");
+
+    if (reportId) {
+      const byId = getReportById(reportId);
+      if (!byId) {
+        return {
+          report: null,
+          notFoundMessage: "That report could not be found. It may have been deleted.",
+        };
+      }
+
+      return { report: byId, notFoundMessage: null };
+    }
+
+    if (latest === "1") {
+      const newest = getLatestReport();
+      return {
+        report: newest,
+        notFoundMessage: newest ? null : "No saved report found yet. Run a check first.",
+      };
+    }
+
+    const fallback = getLatestReport();
+    return {
+      report: fallback,
+      notFoundMessage: fallback ? null : "No saved report found yet. Run a check first.",
+    };
+  }, [searchParams]);
+
   const createdLabel = (() => {
-    if (!report?.createdAt) return "";
-    const d = new Date(report.createdAt);
-    return Number.isNaN(d.getTime()) ? report.createdAt : d.toLocaleString();
+    if (!report?.generatedAt) return "";
+    const d = new Date(report.generatedAt);
+    return Number.isNaN(d.getTime()) ? report.generatedAt : d.toLocaleString();
   })();
 
   const overallStatus = useMemo<OverallStatus>(() => {
-    if (!report) return "pass";
-    if ((report.results ?? []).some((result) => result.status === "error")) return "error";
-    if ((report.results ?? []).some((result) => result.status === "warning")) return "warning";
-    return "pass";
+    if (!report) return "PASS";
+    return report.status;
   }, [report]);
 
   const handleCopySummary = async () => {
     if (!report) return;
-
-    const summary = [
-      "PressReady DTF Report",
-      report.fileName ? `File: ${report.fileName}` : null,
-      report.imageWidthPx && report.imageHeightPx ? `Size: ${report.imageWidthPx}x${report.imageHeightPx} px` : null,
-      report.printWidthIn ? `Print width: ${report.printWidthIn} in` : null,
-      report.shirtColor ? `Shirt: ${report.shirtColor} | White ink: ${report.whiteInk ? "yes" : "no"}` : null,
-      ...report.results.map((result) => {
-        const fixText = result.fix ? ` — Fix: ${result.fix}` : "";
-        const detailText = result.detail ? result.detail : result.title;
-        return `- ${statusLabelMap[result.status]}: ${detailText}${fixText}`;
-      }),
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    await navigator.clipboard.writeText(summary);
+    await navigator.clipboard.writeText(report.summaryText);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
   };
@@ -77,30 +91,51 @@ export default function ReportClient() {
     return (
       <div className="min-h-screen bg-[#0b0b0b] p-6 text-[#f5c400]">
         <h1 className="mb-2 text-2xl font-bold">PressReady — DTF Readiness Report</h1>
-        <p className="mb-6 text-[#f5c400]/80">No saved report found yet. Run a check first.</p>
-        <Link
-          href="/check"
-          className="inline-flex rounded-xl bg-[#f5c400] px-4 py-2 font-semibold text-black transition hover:bg-[#e6b800] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5c400]"
-        >
-          Back to Check
-        </Link>
+        <p className="mb-6 text-[#f5c400]/80">{notFoundMessage ?? "No report found."}</p>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/history"
+            className="inline-flex rounded-xl border border-[#7a6310] bg-[#1a1a1a] px-4 py-2 font-semibold text-[#f5c400] transition hover:bg-[#242424] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5c400]"
+          >
+            Back to History
+          </Link>
+          <Link
+            href="/check"
+            className="inline-flex rounded-xl bg-[#f5c400] px-4 py-2 font-semibold text-black transition hover:bg-[#e6b800] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5c400]"
+          >
+            Run New Check
+          </Link>
+        </div>
       </div>
     );
   }
 
   const details: Array<{ label: string; value?: string }> = [
-    { label: "File", value: report.fileName },
+    { label: "File", value: report.reportData.fileName },
     { label: "Generated", value: createdLabel || new Date().toLocaleString() },
     {
       label: "Image size",
       value:
-        report.imageWidthPx && report.imageHeightPx
-          ? `${report.imageWidthPx}×${report.imageHeightPx} px`
+        report.reportData.imageWidthPx && report.reportData.imageHeightPx
+          ? `${report.reportData.imageWidthPx}×${report.reportData.imageHeightPx} px`
           : undefined,
     },
-    { label: "Print width", value: report.printWidthIn ? `${report.printWidthIn} in` : undefined },
-    { label: "Shirt color", value: report.shirtColor },
-    { label: "White ink", value: typeof report.whiteInk === "boolean" ? (report.whiteInk ? "Yes" : "No") : undefined },
+    {
+      label: "Print width",
+      value: report.reportData.printWidthIn
+        ? `${report.reportData.printWidthIn} in`
+        : undefined,
+    },
+    { label: "Shirt color", value: report.reportData.shirtColor },
+    {
+      label: "White ink",
+      value:
+        typeof report.reportData.whiteInk === "boolean"
+          ? report.reportData.whiteInk
+            ? "Yes"
+            : "No"
+          : undefined,
+    },
   ];
 
   return (
@@ -112,6 +147,12 @@ export default function ReportClient() {
             className="inline-flex rounded-xl border border-[#7a6310] bg-[#1a1a1a] px-4 py-2 font-semibold text-[#f5c400] transition hover:bg-[#242424] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5c400]"
           >
             Run another check
+          </Link>
+          <Link
+            href="/history"
+            className="inline-flex rounded-xl border border-[#7a6310] bg-[#1a1a1a] px-4 py-2 font-semibold text-[#f5c400] transition hover:bg-[#242424] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5c400]"
+          >
+            Open history
           </Link>
           <button
             onClick={handleCopySummary}
@@ -159,17 +200,17 @@ export default function ReportClient() {
             <div className="space-y-4">
               {(report.results ?? []).map((result, idx) => (
                 <article
-                  key={`${result.title}-${idx}`}
-                  className="report-card rounded-xl border border-[#4a3f11] bg-[#141414] p-5 print:border-black/20 print:bg-white"
+                  key={`${result.title}-${index}`}
+                  className="report-card rounded-xl border border-[#5f4d10] bg-[#121212] p-4 print:border-zinc-300 print:bg-white"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
-                    <h3 className="max-w-full break-words text-lg font-semibold text-[#f5c400] print:text-black">{result.title}</h3>
-                    <StatusBadge status={result.status} />
-                  </div>
-                  {result.detail ? <p className="mt-2 break-words text-sm text-[#f8df6d] print:text-black">{result.detail}</p> : null}
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f5c400]/80 print:text-zinc-500">
+                    {statusLabelMap[result.status]}
+                  </p>
+                  <h3 className="mt-2 text-lg font-semibold text-[#f5f0cc] print:text-zinc-900">{result.title}</h3>
+                  <p className="mt-2 text-sm text-[#f5e7ab] print:text-zinc-700">{result.detail || result.title}</p>
                   {result.fix ? (
-                    <p className="mt-2 break-words text-sm text-[#f8df6d] print:text-black">
-                      <span className="font-semibold">Suggested fix:</span> {result.fix}
+                    <p className="mt-2 text-sm text-[#f8df6d] print:text-zinc-700">
+                      Fix: {result.fix}
                     </p>
                   ) : null}
                 </article>
