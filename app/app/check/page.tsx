@@ -1,18 +1,34 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { StoredReport, StoredReportResult, StoredStatus, saveToHistory } from "../lib/history";
 
-type ShirtColor = "Light" | "Dark";
+import {
+  saveReportToHistory,
+  type StoredReport,
+  type StoredShirtColor,
+  type StoredStatus,
+} from "@/app/lib/report-history";
 
-const statusClasses: Record<StoredStatus, string> = {
-  PASS: "border-emerald-400 text-emerald-300",
-  WARN: "border-amber-400 text-amber-300",
-  FAIL: "border-rose-400 text-rose-300",
+type ShirtColor = "Light" | "Dark";
+type CheckStatus = "Pass" | "Warning" | "Error";
+type ResultCard = {
+  title: string;
+  status: CheckStatus;
+  message: string;
+  suggestion?: string;
+};
+
+const statusClasses: Record<CheckStatus, string> = {
+  Pass: "border-emerald-400 text-emerald-300",
+  Warning: "border-amber-400 text-amber-300",
+  Error: "border-rose-400 text-rose-300",
 };
 
 export default function DesignCheckPage() {
+  const router = useRouter();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imageWidthPx, setImageWidthPx] = useState<number | null>(null);
@@ -20,12 +36,16 @@ export default function DesignCheckPage() {
   const [printWidthIn, setPrintWidthIn] = useState<number>(12);
   const [shirtColor, setShirtColor] = useState<ShirtColor>("Dark");
   const [whiteInk, setWhiteInk] = useState<boolean>(true);
-  const [results, setResults] = useState<StoredReportResult[] | null>(null);
-  const [latestReportId, setLatestReportId] = useState<string | null>(null);
+  const [results, setResults] = useState<ResultCard[] | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const acceptedTypes = useMemo(() => ["image/png", "image/jpeg", "image/svg+xml"], []);
+  const acceptedTypes = useMemo(
+    () => ["image/png", "image/jpeg", "image/svg+xml"],
+    [],
+  );
 
-  const getFileExtension = (name: string) => name.split(".").pop()?.toLowerCase() ?? "";
+  const getFileExtension = (name: string) =>
+    name.split(".").pop()?.toLowerCase() ?? "";
 
   useEffect(() => {
     return () => {
@@ -78,7 +98,10 @@ export default function DesignCheckPage() {
     }
 
     const extension = getFileExtension(uploadedFile.name);
-    const isJpg = extension === "jpg" || extension === "jpeg" || uploadedFile.type === "image/jpeg";
+    const isJpg =
+      extension === "jpg" ||
+      extension === "jpeg" ||
+      uploadedFile.type === "image/jpeg";
     const effectiveDPI = imageWidthPx / printWidthIn;
     const roundedDPI = Math.round(effectiveDPI);
 
@@ -87,7 +110,8 @@ export default function DesignCheckPage() {
           title: "Transparency check",
           status: "WARN",
           message: "JPG cannot be transparent.",
-          details: ["Use PNG or SVG if you need transparent background areas."],
+          suggestion:
+            "Use PNG or SVG if you need transparent background areas.",
         }
       : {
           title: "Transparency check",
@@ -101,7 +125,8 @@ export default function DesignCheckPage() {
             title: "Resolution (effective DPI)",
             status: "FAIL",
             message: `Effective DPI: ${roundedDPI}.`,
-            details: ["Increase image pixel width or reduce print width to reach at least 220 DPI."],
+            suggestion:
+              "Increase image pixel width or reduce print width to reach at least 220 DPI.",
           }
         : effectiveDPI < 220
           ? {
@@ -122,7 +147,8 @@ export default function DesignCheckPage() {
             title: "Dark shirt + white ink",
             status: "FAIL",
             message: "High risk: no white ink.",
-            details: ["Enable white ink for dark garments to preserve color vibrancy."],
+            suggestion:
+              "Enable white ink for dark garments to preserve color vibrancy.",
           }
         : {
             title: "Dark shirt + white ink",
@@ -136,7 +162,8 @@ export default function DesignCheckPage() {
             title: "Small details risk",
             status: "WARN",
             message: "May lose fine details when printed large.",
-            details: ["Use a wider source image to better preserve intricate elements."],
+            suggestion:
+              "Use a wider source image to better preserve intricate elements.",
           }
         : {
             title: "Small details risk",
@@ -144,59 +171,114 @@ export default function DesignCheckPage() {
             message: "Pixel width is likely sufficient for finer details.",
           };
 
-    const nextResults = [transparencyCard, resolutionCard, whiteInkCard, detailCard];
-    const overallStatus: StoredStatus = nextResults.some((item) => item.status === "FAIL")
-      ? "FAIL"
-      : nextResults.some((item) => item.status === "WARN")
-        ? "WARN"
-        : "PASS";
-    const generatedAt = new Date().toISOString();
-    const report: StoredReport = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      title: uploadedFile.name,
-      status: overallStatus,
-      generatedAt,
-      results: nextResults,
-      summaryText: [
-        `Report: ${uploadedFile.name}`,
-        `Generated: ${new Date(generatedAt).toLocaleString()}`,
-        ...nextResults.map(
-          (item) =>
-            `${item.status} - ${item.title}${item.message ? `: ${item.message}` : ""}${
-              item.details?.length ? ` (${item.details.join("; ")})` : ""
-            }`,
-        ),
-      ].join("\n"),
-      meta: {
-        imageSize: `${imageWidthPx}×${imageHeightPx}px`,
-        printWidthIn,
-        shirtColor,
-        whiteInk,
-      },
-    };
-
-    saveToHistory(report);
-    setLatestReportId(report.id);
+    const nextResults = [
+      transparencyCard,
+      resolutionCard,
+      whiteInkCard,
+      detailCard,
+    ];
     setResults(nextResults);
+    saveReport(nextResults);
   };
 
-  const canRunChecks = Boolean(uploadedFile && imageWidthPx && imageHeightPx && printWidthIn > 0);
+  const toStoredStatus = (status: CheckStatus): StoredStatus => {
+    if (status === "Pass") {
+      return "pass";
+    }
+
+    if (status === "Warning") {
+      return "warning";
+    }
+
+    return "error";
+  };
+
+  const buildReport = (nextResults: ResultCard[]): StoredReport | null => {
+    if (!uploadedFile || !imageWidthPx || !imageHeightPx || printWidthIn <= 0) {
+      return null;
+    }
+
+    return {
+      id:
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      createdAt: new Date().toISOString(),
+      fileName: uploadedFile.name,
+      imageWidthPx,
+      imageHeightPx,
+      printWidthIn,
+      shirtColor: shirtColor.toLowerCase() as StoredShirtColor,
+      whiteInk,
+      results: nextResults.map((result) => ({
+        status: toStoredStatus(result.status),
+        title: result.title,
+        detail: result.message,
+        fix: result.suggestion,
+      })),
+    };
+  };
+
+  const saveReport = (nextResults: ResultCard[]): StoredReport | null => {
+    const report = buildReport(nextResults);
+
+    if (!report) {
+      return null;
+    }
+
+    saveReportToHistory(localStorage, report);
+    return report;
+  };
+
+  const handleCopySummary = async () => {
+    if (!results || !uploadedFile || !imageWidthPx || !imageHeightPx) {
+      return;
+    }
+
+    const summary = [
+      "PressReady DTF Report",
+      `File: ${uploadedFile.name}`,
+      `Size: ${imageWidthPx}x${imageHeightPx} px`,
+      `Print width: ${printWidthIn} in`,
+      `Shirt: ${shirtColor.toLowerCase()} | White ink: ${whiteInk ? "yes" : "no"}`,
+      ...results.map((result) => {
+        const fixText = result.suggestion ? ` — Fix: ${result.suggestion}` : "";
+        return `- ${result.status.toUpperCase()}: ${result.message}${fixText}`;
+      }),
+    ].join("\n");
+
+    await navigator.clipboard.writeText(summary);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadPdf = () => {
+    if (!results) {
+      return;
+    }
+
+    saveReport(results);
+    router.push("/report?latest=1");
+  };
+
+  const canRunChecks = Boolean(
+    uploadedFile && imageWidthPx && imageHeightPx && printWidthIn > 0,
+  );
 
   return (
     <section className="space-y-8 rounded-xl bg-[#0b0b0b] p-6 text-[#f5c400] md:p-10">
-      <div className="flex flex-wrap items-center gap-4">
-        <Link className="inline-flex items-center text-sm font-semibold hover:underline" href="/">
-          ← Back to Home
-        </Link>
-        <Link className="inline-flex items-center text-sm font-semibold hover:underline" href="/history">
-          View History
-        </Link>
-      </div>
+      <Link
+        className="inline-flex items-center text-sm font-semibold hover:underline"
+        href="/"
+      >
+        ← Back to Home
+      </Link>
 
       <header className="space-y-2">
         <h1 className="text-4xl font-bold">Design Check</h1>
         <p className="max-w-3xl text-base text-[#f8df6d]">
-          Upload your design and run a quick DTF readiness report before sending artwork to print.
+          Upload your design and run a quick DTF readiness report before sending
+          artwork to print.
         </p>
       </header>
 
@@ -276,27 +358,41 @@ export default function DesignCheckPage() {
       {results && (
         <section className="space-y-4">
           <h2 className="text-2xl font-bold">DTF Readiness Report</h2>
-          {latestReportId && (
-            <p className="text-sm text-[#f8df6d]">
-              <Link className="font-semibold underline" href={`/report?id=${latestReportId}`}>
-                Open saved report
-              </Link>
-            </p>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              className="rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"
+              onClick={handleCopySummary}
+              type="button"
+            >
+              Copy Summary
+            </button>
+            <button
+              className="rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"
+              onClick={handleDownloadPdf}
+              type="button"
+            >
+              Download Report (PDF)
+            </button>
+            {copied && <p className="text-sm text-emerald-300">Copied!</p>}
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             {results.map((result) => (
               <article
                 className={`rounded-lg border bg-[#171717] p-4 ${statusClasses[result.status]}`}
                 key={result.title}
               >
-                <p className="text-xs font-bold uppercase tracking-wider">{result.status}</p>
-                <h3 className="mt-1 text-lg font-semibold text-[#f5c400]">{result.title}</h3>
+                <p className="text-xs font-bold uppercase tracking-wider">
+                  {result.status}
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-[#f5c400]">
+                  {result.title}
+                </h3>
                 <p className="mt-2 text-sm text-[#f5e7ab]">{result.message}</p>
-                {result.details?.map((detail) => (
-                  <p className="mt-2 text-sm text-[#f8df6d]" key={detail}>
-                    Fix: {detail}
+                {result.suggestion && (
+                  <p className="mt-2 text-sm text-[#f8df6d]">
+                    Fix: {result.suggestion}
                   </p>
-                ))}
+                )}
               </article>
             ))}
           </div>

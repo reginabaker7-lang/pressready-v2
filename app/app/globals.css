@@ -35,3 +35,61 @@ a:hover {
   text-decoration: underline;
   text-underline-offset: 0.2rem;
 }
+
+@media print {
+  @page {
+    margin: 0.5in;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  nav,
+  header,
+  footer {
+    display: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .report-page,
+  .report-shell,
+  .report-page-card {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .report-card {
+    border: 1px solid #d2d2d2 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-card > *,
+  .report-card section,
+  .report-card article,
+  .report-card dl,
+  .report-card div {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  a,
+  a:visited {
+    color: #111 !important;
+    text-decoration: underline;
+  }
+}
