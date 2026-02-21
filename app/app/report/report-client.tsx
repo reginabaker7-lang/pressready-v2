@@ -1,21 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-type Status = "pass" | "warning" | "error";
-type Result = { status: Status; title: string; detail?: string; fix?: string };
+import { REPORT_STORAGE_KEY, type StoredReport, type StoredStatus } from "@/app/lib/report-history";
 
-type Report = {
-  id: string;
-  createdAt: string;
-  fileName?: string;
-  imageWidthPx?: number;
-  imageHeightPx?: number;
-  printWidthIn?: number;
-  shirtColor?: "light" | "dark";
-  whiteInk?: boolean;
-  results: Result[];
+type Report = StoredReport;
+
+type OverallStatus = "pass" | "warning" | "error";
+
+const statusLabelMap: Record<StoredStatus, string> = {
+  pass: "PASS",
+  warning: "WARN",
+  error: "FAIL",
 };
 
 export default function ReportClient() {
@@ -23,12 +20,13 @@ export default function ReportClient() {
     if (typeof window === "undefined") return null;
 
     try {
-      const raw = localStorage.getItem("pressready_report_v1");
+      const raw = localStorage.getItem(REPORT_STORAGE_KEY);
       return raw ? (JSON.parse(raw) as Report) : null;
     } catch {
       return null;
     }
   });
+  const [copied, setCopied] = useState(false);
 
   const createdLabel = (() => {
     if (!report?.createdAt) return "";
@@ -36,81 +34,162 @@ export default function ReportClient() {
     return Number.isNaN(d.getTime()) ? report.createdAt : d.toLocaleString();
   })();
 
+  const overallStatus = useMemo<OverallStatus>(() => {
+    if (!report) return "pass";
+    if ((report.results ?? []).some((result) => result.status === "error")) return "error";
+    if ((report.results ?? []).some((result) => result.status === "warning")) return "warning";
+    return "pass";
+  }, [report]);
+
+  const handleCopySummary = async () => {
+    if (!report) return;
+
+    const summary = [
+      "PressReady DTF Report",
+      report.fileName ? `File: ${report.fileName}` : null,
+      report.imageWidthPx && report.imageHeightPx ? `Size: ${report.imageWidthPx}x${report.imageHeightPx} px` : null,
+      report.printWidthIn ? `Print width: ${report.printWidthIn} in` : null,
+      report.shirtColor ? `Shirt: ${report.shirtColor} | White ink: ${report.whiteInk ? "yes" : "no"}` : null,
+      ...report.results.map((result) => {
+        const fixText = result.fix ? ` — Fix: ${result.fix}` : "";
+        const detailText = result.detail ? result.detail : result.title;
+        return `- ${statusLabelMap[result.status]}: ${detailText}${fixText}`;
+      }),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    await navigator.clipboard.writeText(summary);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
   if (!report) {
     return (
       <div className="min-h-screen bg-[#0b0b0b] p-6 text-[#f5c400]">
         <h1 className="mb-2 text-2xl font-bold">PressReady — DTF Readiness Report</h1>
         <p className="mb-6 text-[#f5c400]/80">No saved report found yet. Run a check first.</p>
-        <Link href="/check" className="inline-flex rounded-xl bg-[#f5c400] px-4 py-2 font-semibold text-black">
+        <Link
+          href="/check"
+          className="inline-flex rounded-xl bg-[#f5c400] px-4 py-2 font-semibold text-black transition hover:bg-[#e6b800] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5c400]"
+        >
           Back to Check
         </Link>
       </div>
     );
   }
 
+  const details: Array<{ label: string; value?: string }> = [
+    { label: "File", value: report.fileName },
+    { label: "Generated", value: createdLabel || new Date().toLocaleString() },
+    {
+      label: "Image size",
+      value:
+        report.imageWidthPx && report.imageHeightPx
+          ? `${report.imageWidthPx}×${report.imageHeightPx} px`
+          : undefined,
+    },
+    { label: "Print width", value: report.printWidthIn ? `${report.printWidthIn} in` : undefined },
+    { label: "Shirt color", value: report.shirtColor },
+    { label: "White ink", value: typeof report.whiteInk === "boolean" ? (report.whiteInk ? "Yes" : "No") : undefined },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#0b0b0b] p-6 text-[#f5c400]">
-      <div className="mb-6 flex items-center gap-3 print:hidden">
-        <Link href="/check" className="inline-flex rounded-xl bg-[#f5c400] px-4 py-2 font-semibold text-black">
-          Back to Check
-        </Link>
-        <button
-          onClick={() => window.print()}
-          className="inline-flex rounded-xl border border-[#f5c400] px-4 py-2 font-semibold text-[#f5c400]"
-          type="button"
-        >
-          Print / Save as PDF
-        </button>
-      </div>
-
-      <div className="max-w-3xl rounded-2xl bg-white p-6 text-black">
-        <h1 className="mb-1 text-2xl font-extrabold">PressReady — DTF Readiness Report</h1>
-        <p className="mb-4 text-sm text-black/70">
-          {createdLabel}
-          {report.fileName ? ` • ${report.fileName}` : ""}
-        </p>
-
-        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Info label="Image size" value={`${report.imageWidthPx ?? "—"}×${report.imageHeightPx ?? "—"} px`} />
-          <Info label="Print width" value={`${report.printWidthIn ?? "—"} in`} />
-          <Info label="Shirt color" value={report.shirtColor ?? "—"} />
-          <Info label="White ink" value={typeof report.whiteInk === "boolean" ? (report.whiteInk ? "Yes" : "No") : "—"} />
+    <div className="min-h-screen bg-[#0b0b0b] p-4 text-[#f5c400] sm:p-6">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+        <div className="no-print flex flex-wrap items-center gap-3">
+          <Link
+            href="/check"
+            className="inline-flex rounded-xl border border-[#7a6310] bg-[#1a1a1a] px-4 py-2 font-semibold text-[#f5c400] transition hover:bg-[#242424] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5c400]"
+          >
+            Run another check
+          </Link>
+          <button
+            onClick={handleCopySummary}
+            className="inline-flex rounded-xl border border-[#7a6310] bg-[#1a1a1a] px-4 py-2 font-semibold text-[#f5c400] transition hover:bg-[#242424] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5c400]"
+            type="button"
+          >
+            {copied ? "Copied!" : "Copy Summary"}
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="inline-flex rounded-xl bg-[#f5c400] px-4 py-2 font-semibold text-black transition hover:bg-[#e6b800] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5c400]"
+            type="button"
+          >
+            Print / Save PDF
+          </button>
         </div>
 
-        <h2 className="mb-3 text-lg font-bold">Results</h2>
-        <div className="space-y-3">
-          {(report.results ?? []).map((r, idx) => (
-            <div key={idx} className="rounded-xl border p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="font-semibold">{r.title}</div>
-                <Badge status={r.status} />
+        <div className="report-shell overflow-hidden rounded-2xl border border-[#5f4d10] bg-gradient-to-b from-[#0f0f0f] to-[#090909] p-5 shadow-[0_0_0_1px_rgba(212,175,55,0.15)] sm:p-7 print:rounded-none print:border-none print:bg-white print:p-0 print:shadow-none">
+          <header className="mb-6 border-b border-[#5f4d10] pb-4 print:border-black/30">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.18em] text-[#f8df6d] print:text-black">PressReady</p>
+                <h1 className="text-3xl font-extrabold text-[#f5c400] print:text-black">DTF Readiness Report</h1>
               </div>
-              {r.detail ? <div className="mt-1 text-sm text-black/70">{r.detail}</div> : null}
-              {r.fix ? (
-                <div className="mt-2 text-sm">
-                  <span className="font-semibold">Fix:</span> {r.fix}
-                </div>
-              ) : null}
+              <StatusBadge status={overallStatus} large />
             </div>
-          ))}
-        </div>
+          </header>
 
-        <p className="mt-6 text-xs text-black/60">Tip: In the print dialog, choose “Save as PDF”.</p>
+          <section className="report-card mb-5 rounded-xl border border-[#4a3f11] bg-[#141414] p-4 print:border-black/20 print:bg-white">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#f8df6d] print:text-black">Report Details</h2>
+            <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+              {details
+                .filter((item) => Boolean(item.value))
+                .map((item) => (
+                  <div key={item.label} className="rounded-lg border border-[#3f330a] bg-[#0f0f0f] p-3 print:border-black/15 print:bg-white">
+                    <dt className="text-xs uppercase tracking-wide text-[#d4b95a] print:text-black/70">{item.label}</dt>
+                    <dd className="mt-1 font-semibold text-[#f8df6d] print:text-black">{item.value}</dd>
+                  </div>
+                ))}
+            </dl>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-xl font-bold text-[#f8df6d] print:text-black">Check Results</h2>
+            <div className="space-y-4">
+              {(report.results ?? []).map((result, idx) => (
+                <article
+                  key={`${result.title}-${idx}`}
+                  className="report-card rounded-xl border border-[#4a3f11] bg-[#141414] p-4 print:border-black/20 print:bg-white"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="text-lg font-semibold text-[#f5c400] print:text-black">{result.title}</h3>
+                    <StatusBadge status={result.status} />
+                  </div>
+                  {result.detail ? <p className="mt-2 text-sm text-[#f8df6d] print:text-black">{result.detail}</p> : null}
+                  {result.fix ? (
+                    <p className="mt-2 text-sm text-[#f8df6d] print:text-black">
+                      <span className="font-semibold">Suggested fix:</span> {result.fix}
+                    </p>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );
 }
 
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border p-3">
-      <div className="text-xs text-black/60">{label}</div>
-      <div className="font-semibold">{value}</div>
-    </div>
-  );
-}
+function StatusBadge({ status, large = false }: { status: OverallStatus | StoredStatus; large?: boolean }) {
+  const tone =
+    status === "pass"
+      ? "border-emerald-400/60 bg-emerald-500/15 text-emerald-200 print:border-emerald-700 print:bg-transparent print:text-emerald-800"
+      : status === "warning"
+        ? "border-amber-300/70 bg-amber-400/15 text-amber-100 print:border-amber-700 print:bg-transparent print:text-amber-800"
+        : "border-rose-400/70 bg-rose-400/15 text-rose-100 print:border-rose-700 print:bg-transparent print:text-rose-800";
 
-function Badge({ status }: { status: Status }) {
-  const text = status === "pass" ? "PASS" : status === "warning" ? "WARNING" : "ERROR";
-  return <span className="rounded-full border px-2 py-1 text-xs font-bold">{text}</span>;
+  const text = statusLabelMap[status as StoredStatus] ?? "FAIL";
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold tracking-wide ${tone} ${
+        large ? "text-sm" : ""
+      }`}
+    >
+      {text}
+    </span>
+  );
 }
