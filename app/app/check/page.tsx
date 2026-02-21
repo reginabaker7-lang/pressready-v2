@@ -13,10 +13,45 @@ type ResultCard = {
   suggestion?: string;
 };
 
+type StoredReport = {
+  generatedAt: string;
+  fileName: string;
+  imageWidthPx: number;
+  imageHeightPx: number;
+  printWidthIn: number;
+  shirtColor: ShirtColor;
+  whiteInk: boolean;
+  results: ResultCard[];
+};
+
+const REPORT_STORAGE_KEY = "pressready_report_v1";
+
 const statusClasses: Record<CheckStatus, string> = {
   Pass: "border-emerald-400 text-emerald-300",
   Warning: "border-amber-400 text-amber-300",
   Error: "border-rose-400 text-rose-300",
+};
+
+const formatReportSummary = (report: StoredReport) => {
+  const lines = [
+    "PressReady DTF Readiness Report",
+    `Date: ${new Date(report.generatedAt).toLocaleString()}`,
+    `File: ${report.fileName}`,
+    `Image size: ${report.imageWidthPx} x ${report.imageHeightPx} px`,
+    `Print width: ${report.printWidthIn} in`,
+    `Shirt color: ${report.shirtColor}`,
+    `White ink: ${report.whiteInk ? "Yes" : "No"}`,
+    "",
+    "Results:",
+    ...report.results.map(
+      (result, index) =>
+        `${index + 1}. [${result.status}] ${result.title} - ${result.message}${
+          result.suggestion ? ` Fix: ${result.suggestion}` : ""
+        }`,
+    ),
+  ];
+
+  return lines.join("\n");
 };
 
 export default function DesignCheckPage() {
@@ -28,6 +63,7 @@ export default function DesignCheckPage() {
   const [shirtColor, setShirtColor] = useState<ShirtColor>("Dark");
   const [whiteInk, setWhiteInk] = useState<boolean>(true);
   const [results, setResults] = useState<ResultCard[] | null>(null);
+  const [report, setReport] = useState<StoredReport | null>(null);
 
   const acceptedTypes = useMemo(() => ["image/png", "image/jpeg", "image/svg+xml"], []);
 
@@ -44,6 +80,7 @@ export default function DesignCheckPage() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     setResults(null);
+    setReport(null);
 
     if (!file) {
       setUploadedFile(null);
@@ -150,7 +187,38 @@ export default function DesignCheckPage() {
             message: "Pixel width is likely sufficient for finer details.",
           };
 
-    setResults([transparencyCard, resolutionCard, whiteInkCard, detailCard]);
+    const nextResults = [transparencyCard, resolutionCard, whiteInkCard, detailCard];
+    const nextReport: StoredReport = {
+      generatedAt: new Date().toISOString(),
+      fileName: uploadedFile.name,
+      imageWidthPx,
+      imageHeightPx,
+      printWidthIn,
+      shirtColor,
+      whiteInk,
+      results: nextResults,
+    };
+
+    localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(nextReport));
+    setResults(nextResults);
+    setReport(nextReport);
+  };
+
+  const copySummary = async () => {
+    if (!report) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(formatReportSummary(report));
+      alert("Summary copied to clipboard.");
+    } catch {
+      alert("Clipboard access failed. Please copy manually from the report page.");
+    }
+  };
+
+  const downloadPdf = () => {
+    window.open("/report?print=1", "_blank", "noopener,noreferrer");
   };
 
   const canRunChecks = Boolean(uploadedFile && imageWidthPx && imageHeightPx && printWidthIn > 0);
@@ -243,7 +311,26 @@ export default function DesignCheckPage() {
 
       {results && (
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold">DTF Readiness Report</h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-2xl font-bold">DTF Readiness Report</h2>
+            <button
+              className="rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#f5c400] hover:text-[#0b0b0b]"
+              onClick={copySummary}
+              type="button"
+            >
+              Copy Summary
+            </button>
+            <button
+              className="rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#f5c400] hover:text-[#0b0b0b]"
+              onClick={downloadPdf}
+              type="button"
+            >
+              Download Report (PDF)
+            </button>
+            <Link className="text-sm font-semibold underline" href="/report" target="_blank">
+              Open report view
+            </Link>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             {results.map((result) => (
               <article
