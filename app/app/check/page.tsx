@@ -2,16 +2,14 @@
 
 import Link from "next/link";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import {
+  ResultCard,
+  CheckStatus,
+  saveReportToHistory,
+  StoredReport,
+} from "../lib/report-history";
 
 type ShirtColor = "Light" | "Dark";
-type CheckStatus = "Pass" | "Warning" | "Error";
-
-type ResultCard = {
-  title: string;
-  status: CheckStatus;
-  message: string;
-  suggestion?: string;
-};
 
 const statusClasses: Record<CheckStatus, string> = {
   Pass: "border-emerald-400 text-emerald-300",
@@ -28,6 +26,7 @@ export default function DesignCheckPage() {
   const [shirtColor, setShirtColor] = useState<ShirtColor>("Dark");
   const [whiteInk, setWhiteInk] = useState<boolean>(true);
   const [results, setResults] = useState<ResultCard[] | null>(null);
+  const [latestReportId, setLatestReportId] = useState<string | null>(null);
 
   const acceptedTypes = useMemo(() => ["image/png", "image/jpeg", "image/svg+xml"], []);
 
@@ -150,16 +149,38 @@ export default function DesignCheckPage() {
             message: "Pixel width is likely sufficient for finer details.",
           };
 
-    setResults([transparencyCard, resolutionCard, whiteInkCard, detailCard]);
+    const nextResults = [transparencyCard, resolutionCard, whiteInkCard, detailCard];
+    const report: StoredReport = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: new Date().toISOString(),
+      fileName: uploadedFile.name,
+      inputs: {
+        printWidthIn,
+        shirtColor,
+        whiteInk,
+        imageWidthPx,
+        imageHeightPx,
+      },
+      results: nextResults,
+    };
+
+    saveReportToHistory(report);
+    setLatestReportId(report.id);
+    setResults(nextResults);
   };
 
   const canRunChecks = Boolean(uploadedFile && imageWidthPx && imageHeightPx && printWidthIn > 0);
 
   return (
     <section className="space-y-8 rounded-xl bg-[#0b0b0b] p-6 text-[#f5c400] md:p-10">
-      <Link className="inline-flex items-center text-sm font-semibold hover:underline" href="/">
-        ← Back to Home
-      </Link>
+      <div className="flex flex-wrap items-center gap-4">
+        <Link className="inline-flex items-center text-sm font-semibold hover:underline" href="/">
+          ← Back to Home
+        </Link>
+        <Link className="inline-flex items-center text-sm font-semibold hover:underline" href="/history">
+          View History
+        </Link>
+      </div>
 
       <header className="space-y-2">
         <h1 className="text-4xl font-bold">Design Check</h1>
@@ -244,6 +265,13 @@ export default function DesignCheckPage() {
       {results && (
         <section className="space-y-4">
           <h2 className="text-2xl font-bold">DTF Readiness Report</h2>
+          {latestReportId && (
+            <p className="text-sm text-[#f8df6d]">
+              <Link className="font-semibold underline" href={`/report?id=${latestReportId}`}>
+                Open saved report
+              </Link>
+            </p>
+          )}
           <div className="grid gap-4 md:grid-cols-2">
             {results.map((result) => (
               <article

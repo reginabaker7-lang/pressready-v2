@@ -13,6 +13,9 @@ export default function Home() {
         <Link className="rounded border border-[var(--pressready-gold)] px-4 py-2" href="/check">
           Start a Design Check
         </Link>
+        <Link className="rounded border border-[var(--pressready-gold)] px-4 py-2" href="/history">
+          View History
+        </Link>
         <Link className="rounded border border-[var(--pressready-gold)] px-4 py-2" href="/how-it-works">
           Learn How It Works
         </Link>

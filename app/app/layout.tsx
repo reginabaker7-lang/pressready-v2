@@ -30,6 +30,7 @@ export default function RootLayout({
           <nav className="mx-auto flex w-full max-w-5xl items-center gap-6 px-6 py-4 text-sm font-semibold uppercase tracking-widest">
             <Link href="/">Home</Link>
             <Link href="/check">Design Check</Link>
+            <Link href="/history">History</Link>
             <Link href="/how-it-works">How It Works</Link>
           </nav>
         </header>
