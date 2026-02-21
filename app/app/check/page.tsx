@@ -25,7 +25,7 @@ type StoredReportResult = {
 
 type StoredReport = {
   id: string;
-  createdAt: string;
+  generatedAt: string;
   fileName: string;
   imageWidthPx: number;
   imageHeightPx: number;
@@ -219,7 +219,7 @@ export default function DesignCheckPage() {
         typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-      createdAt: new Date().toISOString(),
+      generatedAt: new Date().toISOString(),
       fileName: uploadedFile.name,
       imageWidthPx,
       imageHeightPx,
