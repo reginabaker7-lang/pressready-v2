@@ -55,9 +55,13 @@ export default function DesignCheckPage() {
   const [results, setResults] = useState<ResultCard[] | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const acceptedTypes = useMemo(() => ["image/png", "image/jpeg", "image/svg+xml"], []);
+  const acceptedTypes = useMemo(
+    () => ["image/png", "image/jpeg", "image/svg+xml"],
+    [],
+  );
 
-  const getFileExtension = (name: string) => name.split(".").pop()?.toLowerCase() ?? "";
+  const getFileExtension = (name: string) =>
+    name.split(".").pop()?.toLowerCase() ?? "";
 
   useEffect(() => {
     return () => {
@@ -110,7 +114,10 @@ export default function DesignCheckPage() {
     }
 
     const extension = getFileExtension(uploadedFile.name);
-    const isJpg = extension === "jpg" || extension === "jpeg" || uploadedFile.type === "image/jpeg";
+    const isJpg =
+      extension === "jpg" ||
+      extension === "jpeg" ||
+      uploadedFile.type === "image/jpeg";
     const effectiveDPI = imageWidthPx / printWidthIn;
     const roundedDPI = Math.round(effectiveDPI);
 
@@ -119,7 +126,8 @@ export default function DesignCheckPage() {
           title: "Transparency check",
           status: "Warning",
           message: "JPG cannot be transparent.",
-          suggestion: "Use PNG or SVG if you need transparent background areas.",
+          suggestion:
+            "Use PNG or SVG if you need transparent background areas.",
         }
       : {
           title: "Transparency check",
@@ -133,7 +141,8 @@ export default function DesignCheckPage() {
             title: "Resolution (effective DPI)",
             status: "Error",
             message: `Effective DPI: ${roundedDPI}.`,
-            suggestion: "Increase image pixel width or reduce print width to reach at least 220 DPI.",
+            suggestion:
+              "Increase image pixel width or reduce print width to reach at least 220 DPI.",
           }
         : effectiveDPI < 220
           ? {
@@ -154,7 +163,8 @@ export default function DesignCheckPage() {
             title: "Dark shirt + white ink",
             status: "Error",
             message: "High risk: no white ink.",
-            suggestion: "Enable white ink for dark garments to preserve color vibrancy.",
+            suggestion:
+              "Enable white ink for dark garments to preserve color vibrancy.",
           }
         : {
             title: "Dark shirt + white ink",
@@ -168,7 +178,8 @@ export default function DesignCheckPage() {
             title: "Small details risk",
             status: "Warning",
             message: "May lose fine details when printed large.",
-            suggestion: "Use a wider source image to better preserve intricate elements.",
+            suggestion:
+              "Use a wider source image to better preserve intricate elements.",
           }
         : {
             title: "Small details risk",
@@ -176,7 +187,12 @@ export default function DesignCheckPage() {
             message: "Pixel width is likely sufficient for finer details.",
           };
 
-    const nextResults = [transparencyCard, resolutionCard, whiteInkCard, detailCard];
+    const nextResults = [
+      transparencyCard,
+      resolutionCard,
+      whiteInkCard,
+      detailCard,
+    ];
     setResults(nextResults);
     saveReport(nextResults);
   };
@@ -199,9 +215,10 @@ export default function DesignCheckPage() {
     }
 
     return {
-      id: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      id:
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       createdAt: new Date().toISOString(),
       fileName: uploadedFile.name,
       imageWidthPx,
@@ -260,18 +277,24 @@ export default function DesignCheckPage() {
     router.push("/report?latest=1");
   };
 
-  const canRunChecks = Boolean(uploadedFile && imageWidthPx && imageHeightPx && printWidthIn > 0);
+  const canRunChecks = Boolean(
+    uploadedFile && imageWidthPx && imageHeightPx && printWidthIn > 0,
+  );
 
   return (
     <section className="space-y-8 rounded-xl bg-[#0b0b0b] p-6 text-[#f5c400] md:p-10">
-      <Link className="inline-flex items-center text-sm font-semibold hover:underline" href="/">
+      <Link
+        className="inline-flex items-center text-sm font-semibold hover:underline"
+        href="/"
+      >
         ← Back to Home
       </Link>
 
       <header className="space-y-2">
         <h1 className="text-4xl font-bold">Design Check</h1>
         <p className="max-w-3xl text-base text-[#f8df6d]">
-          Upload your design and run a quick DTF readiness report before sending artwork to print.
+          Upload your design and run a quick DTF readiness report before sending
+          artwork to print.
         </p>
       </header>
 
@@ -374,11 +397,17 @@ export default function DesignCheckPage() {
                 className={`rounded-lg border bg-[#171717] p-4 ${statusClasses[result.status]}`}
                 key={result.title}
               >
-                <p className="text-xs font-bold uppercase tracking-wider">{result.status}</p>
-                <h3 className="mt-1 text-lg font-semibold text-[#f5c400]">{result.title}</h3>
+                <p className="text-xs font-bold uppercase tracking-wider">
+                  {result.status}
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-[#f5c400]">
+                  {result.title}
+                </h3>
                 <p className="mt-2 text-sm text-[#f5e7ab]">{result.message}</p>
                 {result.suggestion && (
-                  <p className="mt-2 text-sm text-[#f8df6d]">Fix: {result.suggestion}</p>
+                  <p className="mt-2 text-sm text-[#f8df6d]">
+                    Fix: {result.suggestion}
+                  </p>
                 )}
               </article>
             ))}
