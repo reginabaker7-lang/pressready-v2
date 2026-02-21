@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
 type ShirtColor = "Light" | "Dark";
 type CheckStatus = "Pass" | "Warning" | "Error";
+type StoredShirtColor = "light" | "dark";
+type StoredStatus = "pass" | "warning" | "error";
 
 type ResultCard = {
   title: string;
@@ -15,13 +18,23 @@ type ResultCard = {
 
 type StoredReport = {
   generatedAt: string;
+type StoredReportResult = {
+  status: StoredStatus;
+  title: string;
+  detail?: string;
+  fix?: string;
+};
+
+type StoredReport = {
+  id: string;
+  createdAt: string;
   fileName: string;
   imageWidthPx: number;
   imageHeightPx: number;
   printWidthIn: number;
-  shirtColor: ShirtColor;
+  shirtColor: StoredShirtColor;
   whiteInk: boolean;
-  results: ResultCard[];
+  results: StoredReportResult[];
 };
 
 const REPORT_STORAGE_KEY = "pressready_report_v1";
@@ -55,6 +68,7 @@ const formatReportSummary = (report: StoredReport) => {
 };
 
 export default function DesignCheckPage() {
+  const router = useRouter();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imageWidthPx, setImageWidthPx] = useState<number | null>(null);
@@ -63,7 +77,7 @@ export default function DesignCheckPage() {
   const [shirtColor, setShirtColor] = useState<ShirtColor>("Dark");
   const [whiteInk, setWhiteInk] = useState<boolean>(true);
   const [results, setResults] = useState<ResultCard[] | null>(null);
-  const [report, setReport] = useState<StoredReport | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const acceptedTypes = useMemo(() => ["image/png", "image/jpeg", "image/svg+xml"], []);
 
@@ -188,37 +202,87 @@ export default function DesignCheckPage() {
           };
 
     const nextResults = [transparencyCard, resolutionCard, whiteInkCard, detailCard];
-    const nextReport: StoredReport = {
-      generatedAt: new Date().toISOString(),
+    setResults(nextResults);
+    saveReport(nextResults);
+  };
+
+  const toStoredStatus = (status: CheckStatus): StoredStatus => {
+    if (status === "Pass") {
+      return "pass";
+    }
+
+    if (status === "Warning") {
+      return "warning";
+    }
+
+    return "error";
+  };
+
+  const buildReport = (nextResults: ResultCard[]): StoredReport | null => {
+    if (!uploadedFile || !imageWidthPx || !imageHeightPx || printWidthIn <= 0) {
+      return null;
+    }
+
+    return {
+      id: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      createdAt: new Date().toISOString(),
       fileName: uploadedFile.name,
       imageWidthPx,
       imageHeightPx,
       printWidthIn,
-      shirtColor,
+      shirtColor: shirtColor.toLowerCase() as StoredShirtColor,
       whiteInk,
-      results: nextResults,
+      results: nextResults.map((result) => ({
+        status: toStoredStatus(result.status),
+        title: result.title,
+        detail: result.message,
+        fix: result.suggestion,
+      })),
     };
-
-    localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(nextReport));
-    setResults(nextResults);
-    setReport(nextReport);
   };
 
-  const copySummary = async () => {
+  const saveReport = (nextResults: ResultCard[]): StoredReport | null => {
+    const report = buildReport(nextResults);
+
     if (!report) {
+      return null;
+    }
+
+    localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(report));
+    return report;
+  };
+
+  const handleCopySummary = async () => {
+    if (!results || !uploadedFile || !imageWidthPx || !imageHeightPx) {
       return;
     }
 
-    try {
-      await navigator.clipboard.writeText(formatReportSummary(report));
-      alert("Summary copied to clipboard.");
-    } catch {
-      alert("Clipboard access failed. Please copy manually from the report page.");
-    }
+    const summary = [
+      "PressReady DTF Report",
+      `File: ${uploadedFile.name}`,
+      `Size: ${imageWidthPx}x${imageHeightPx} px`,
+      `Print width: ${printWidthIn} in`,
+      `Shirt: ${shirtColor.toLowerCase()} | White ink: ${whiteInk ? "yes" : "no"}`,
+      ...results.map((result) => {
+        const fixText = result.suggestion ? ` — Fix: ${result.suggestion}` : "";
+        return `- ${result.status.toUpperCase()}: ${result.message}${fixText}`;
+      }),
+    ].join("\n");
+
+    await navigator.clipboard.writeText(summary);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
   };
 
-  const downloadPdf = () => {
-    window.open("/report?print=1", "_blank", "noopener,noreferrer");
+  const handleDownloadPdf = () => {
+    if (!results) {
+      return;
+    }
+
+    saveReport(results);
+    router.push("/report?latest=1");
   };
 
   const canRunChecks = Boolean(uploadedFile && imageWidthPx && imageHeightPx && printWidthIn > 0);
@@ -311,25 +375,23 @@ export default function DesignCheckPage() {
 
       {results && (
         <section className="space-y-4">
+          <h2 className="text-2xl font-bold">DTF Readiness Report</h2>
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-2xl font-bold">DTF Readiness Report</h2>
             <button
-              className="rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#f5c400] hover:text-[#0b0b0b]"
-              onClick={copySummary}
+              className="rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"
+              onClick={handleCopySummary}
               type="button"
             >
               Copy Summary
             </button>
             <button
-              className="rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#f5c400] hover:text-[#0b0b0b]"
-              onClick={downloadPdf}
+              className="rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"
+              onClick={handleDownloadPdf}
               type="button"
             >
               Download Report (PDF)
             </button>
-            <Link className="text-sm font-semibold underline" href="/report" target="_blank">
-              Open report view
-            </Link>
+            {copied && <p className="text-sm text-emerald-300">Copied!</p>}
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             {results.map((result) => (
