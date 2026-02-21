@@ -6,7 +6,7 @@ export type StoredReportResult = {
   title: string;
   detail?: string;
   fix?: string;
-  suggestion?: string;
+  suggestion?: string | undefined;
 };
 
 export type StoredReport = {
