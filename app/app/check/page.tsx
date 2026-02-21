@@ -16,6 +16,8 @@ type ResultCard = {
   suggestion?: string;
 };
 
+type StoredReport = {
+  generatedAt: string;
 type StoredReportResult = {
   status: StoredStatus;
   title: string;
@@ -41,6 +43,28 @@ const statusClasses: Record<CheckStatus, string> = {
   Pass: "border-emerald-400 text-emerald-300",
   Warning: "border-amber-400 text-amber-300",
   Error: "border-rose-400 text-rose-300",
+};
+
+const formatReportSummary = (report: StoredReport) => {
+  const lines = [
+    "PressReady DTF Readiness Report",
+    `Date: ${new Date(report.generatedAt).toLocaleString()}`,
+    `File: ${report.fileName}`,
+    `Image size: ${report.imageWidthPx} x ${report.imageHeightPx} px`,
+    `Print width: ${report.printWidthIn} in`,
+    `Shirt color: ${report.shirtColor}`,
+    `White ink: ${report.whiteInk ? "Yes" : "No"}`,
+    "",
+    "Results:",
+    ...report.results.map(
+      (result, index) =>
+        `${index + 1}. [${result.status}] ${result.title} - ${result.message}${
+          result.suggestion ? ` Fix: ${result.suggestion}` : ""
+        }`,
+    ),
+  ];
+
+  return lines.join("\n");
 };
 
 export default function DesignCheckPage() {
@@ -74,6 +98,7 @@ export default function DesignCheckPage() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     setResults(null);
+    setReport(null);
 
     if (!file) {
       setUploadedFile(null);
