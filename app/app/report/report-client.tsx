@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { REPORT_STORAGE_KEY, type StoredReport, type StoredStatus } from "@/app/lib/report-history";
+import { getReportFromHistory, type StoredReport, type StoredStatus } from "@/app/lib/report-history";
 
 type Report = StoredReport;
 
@@ -29,8 +29,11 @@ export default function ReportClient() {
     if (typeof window === "undefined") return null;
 
     try {
-      const raw = localStorage.getItem(REPORT_STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as Report) : null;
+      const params = new URLSearchParams(window.location.search);
+      return getReportFromHistory(localStorage, {
+        id: params.get("id"),
+        latest: params.get("latest"),
+      });
     } catch {
       return null;
     }

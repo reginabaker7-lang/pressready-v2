@@ -4,38 +4,21 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
+import {
+  saveReportToHistory,
+  type StoredReport,
+  type StoredShirtColor,
+  type StoredStatus,
+} from "@/app/lib/report-history";
+
 type ShirtColor = "Light" | "Dark";
 type CheckStatus = "Pass" | "Warning" | "Error";
-type StoredShirtColor = "light" | "dark";
-type StoredStatus = "pass" | "warning" | "error";
-
 type ResultCard = {
   title: string;
   status: CheckStatus;
   message: string;
   suggestion?: string;
 };
-
-type StoredReportResult = {
-  status: StoredStatus;
-  title: string;
-  detail?: string;
-  fix?: string;
-};
-
-type StoredReport = {
-  id: string;
-  createdAt: string;
-  fileName: string;
-  imageWidthPx: number;
-  imageHeightPx: number;
-  printWidthIn: number;
-  shirtColor: StoredShirtColor;
-  whiteInk: boolean;
-  results: StoredReportResult[];
-};
-
-const REPORT_STORAGE_KEY = "pressready_report_v1";
 
 const statusClasses: Record<CheckStatus, string> = {
   Pass: "border-emerald-400 text-emerald-300",
@@ -242,7 +225,7 @@ export default function DesignCheckPage() {
       return null;
     }
 
-    localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(report));
+    saveReportToHistory(localStorage, report);
     return report;
   };
 
