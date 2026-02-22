@@ -3,13 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
-
-import {
-  saveReportToHistory,
-  type StoredReport,
-  type StoredShirtColor,
-  type StoredStatus,
-} from "@/app/lib/report-history";
+import { saveReportToHistory, type StoredReport, type StoredShirtColor, type StoredStatus } from "@/app/lib/report-history";
 
 type ShirtColor = "Light" | "Dark";
 type CheckStatus = "Pass" | "Warning" | "Error";
@@ -37,6 +31,7 @@ export default function DesignCheckPage() {
   const [whiteInk, setWhiteInk] = useState<boolean>(true);
   const [results, setResults] = useState<ResultCard[] | null>(null);
   const [copied, setCopied] = useState(false);
+  const [plan, setPlan] = useState<"free" | "pro">("free");
 
   const acceptedTypes = useMemo(
     () => ["image/png", "image/jpeg", "image/svg+xml"],
@@ -54,6 +49,20 @@ export default function DesignCheckPage() {
     };
   }, [previewUrl]);
 
+
+  useEffect(() => {
+    const loadPlan = async () => {
+      try {
+        const response = await fetch("/api/plan");
+        const data = (await response.json()) as { plan?: "free" | "pro" };
+        setPlan(data.plan ?? "free");
+      } catch {
+        setPlan("free");
+      }
+    };
+
+    void loadPlan();
+  }, []);
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     setResults(null);
@@ -366,13 +375,17 @@ export default function DesignCheckPage() {
               Copy Summary
             </button>
             <button
-              className="rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"
+              className="rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={plan !== "pro"}
               onClick={handleDownloadPdf}
               type="button"
             >
-              Download Report (PDF)
+              {plan === "pro" ? "Download Report (PDF)" : "Download Report (Pro)"}
             </button>
             {copied && <p className="text-sm text-emerald-300">Copied!</p>}
+            {plan !== "pro" ? (
+              <p className="text-sm text-[#f8df6d]">PDF export is a Pro feature. <Link className="underline" href="/pricing">Upgrade</Link>.</p>
+            ) : null}
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             {results.map((result) => (

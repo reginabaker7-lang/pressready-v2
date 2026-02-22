@@ -2,17 +2,14 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import Link from "next/link";
 import "./globals.css";
+import { ClerkProvider } from "@/app/lib/clerk-provider";
 
 export const metadata: Metadata = {
   title: "PressReady",
   description: "PressReady helps teams run design checks before launch.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ClerkProvider>
       <html lang="en">
