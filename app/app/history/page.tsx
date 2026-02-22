@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { getReportHistory } from "../lib/report-history";
 
 export default function HistoryPage() {
-  const history = useMemo(() => getReportHistory(), []);
+  const history = useMemo(() => (typeof window === "undefined" ? [] : getReportHistory(localStorage)), []);
 
   return (
     <section className="space-y-8 rounded-xl bg-[#0b0b0b] p-6 text-[#f5c400] md:p-10">
