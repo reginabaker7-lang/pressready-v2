@@ -13,7 +13,6 @@ export default async function AccountPage() {
           <p>You’re signed in.</p>
           <p className="text-sm opacity-80">User ID: {userId}</p>
 
-          {/* simple nav for now */}
           <div className="mt-4 flex gap-3">
             <Link className="border border-current px-4 py-2 rounded-lg" href="/pricing">
               Pricing
