@@ -156,3 +156,7 @@ export const getReportFromHistory = (storage: Storage, params: { id?: string | n
 
   return history.reports[0] ?? null;
 };
+
+export const getReportHistory = (storage: Storage): StoredReport[] => {
+  return readReportHistory(storage).reports;
+};
