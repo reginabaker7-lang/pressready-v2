@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs";
 
 export async function getAuthFromServer() {
   return auth();
