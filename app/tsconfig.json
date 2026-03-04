@@ -28,6 +28,9 @@
       ],
       "@clerk/nextjs": [
         "./clerk-nextjs"
+      ],
+      "@clerk/nextjs/server": [
+        "./clerk-nextjs-server"
       ]
     }
   },
