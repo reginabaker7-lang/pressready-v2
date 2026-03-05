@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -10,8 +11,18 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  if (!stripe || !proPriceId) {
-    return NextResponse.json({ error: "Stripe is not configured" }, { status: 500 });
+  if (!stripeSecretKey || !stripe) {
+    return NextResponse.json({ error: "Missing STRIPE_SECRET_KEY" }, { status: 500 });
+  }
+
+  if (!proPriceId) {
+    return NextResponse.json({ error: "Missing STRIPE_PRO_PRICE_ID" }, { status: 500 });
+  }
+
+  const { userId } = await auth();
+
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const origin = req.headers.get("origin");
@@ -25,6 +36,15 @@ export async function POST(req: Request) {
     line_items: [{ price: proPriceId, quantity: 1 }],
     success_url: `${origin}/account?checkout=success`,
     cancel_url: `${origin}/pricing?checkout=cancel`,
+    client_reference_id: userId,
+    subscription_data: {
+      metadata: {
+        clerkUserId: userId,
+      },
+    },
+    metadata: {
+      clerkUserId: userId,
+    },
   });
 
   if (!session.url) {
