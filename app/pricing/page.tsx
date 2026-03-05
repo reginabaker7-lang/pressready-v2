@@ -1,6 +1,6 @@
 import Link from "next/link";
-import PricingClient from "@/app/app/pricing/pricing-client";
-import { getAuthFromServer } from "@/app/app/lib/clerk";
+import PricingClient from "@/app/pricing/pricing-client";
+import { getAuthFromServer } from "@/app/lib/clerk";
 
 export default async function PricingPage() {
   const { userId } = await getAuthFromServer();
