@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PricingClient from "@/app/pricing/pricing-client";
+import UpgradeToProButton from "@/app/pricing/upgrade-to-pro-button";
 import { getAuthFromServer } from "@/app/lib/clerk";
 
 export default async function PricingPage() {
@@ -13,6 +14,10 @@ export default async function PricingPage() {
       </p>
 
       <PricingClient isSignedIn={Boolean(userId)} />
+
+      <div className="pt-2">
+        <UpgradeToProButton isSignedIn={Boolean(userId)} />
+      </div>
 
       <div className="flex flex-wrap gap-4 pt-2 text-sm font-semibold uppercase tracking-wider">
         <Link className="rounded border border-[var(--pressready-gold)] px-4 py-2" href="/">
