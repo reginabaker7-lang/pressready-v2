@@ -5,7 +5,9 @@ import Stripe from "stripe";
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const proPriceId = process.env.STRIPE_PRO_PRICE_ID;
 
-const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+const stripe = stripeSecretKey
+  ? new Stripe(stripeSecretKey, { apiVersion: "2026-02-25.clover" })
+  : null;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
