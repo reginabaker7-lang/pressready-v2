@@ -1,8 +1,11 @@
 import Link from "next/link";
+
 import { getAuthFromServer } from "@/app/lib/clerk";
+import { getUserPlan } from "@/app/lib/subscription";
 
 export default async function AccountPage() {
   const { userId } = await getAuthFromServer();
+  const plan = userId ? await getUserPlan(userId) : "free";
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
@@ -12,6 +15,7 @@ export default async function AccountPage() {
         <div className="mt-6 space-y-3">
           <p>You’re signed in.</p>
           <p className="text-sm opacity-80">User ID: {userId}</p>
+          <p className="text-sm opacity-80">Plan: {plan === "pro" ? "Pro" : "Free"}</p>
 
           <div className="mt-4 flex gap-3">
             <Link className="border border-current px-4 py-2 rounded-lg" href="/pricing">
@@ -33,4 +37,3 @@ export default async function AccountPage() {
     </main>
   );
 }
-   
