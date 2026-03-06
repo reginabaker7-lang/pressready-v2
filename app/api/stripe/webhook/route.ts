@@ -10,6 +10,10 @@ const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+export async function GET() {
+  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+}
+
 export async function POST(req: Request) {
   if (!stripe || !webhookSecret) {
     return NextResponse.json({ error: "Stripe is not configured" }, { status: 500 });
