@@ -25,9 +25,6 @@
     "paths": {
       "@/*": [
         "./*"
-      ],
-      "@clerk/nextjs": [
-        "./clerk-nextjs"
       ]
     },
     "baseUrl": "."
