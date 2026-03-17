@@ -49,6 +49,7 @@ async function resolveClerkUserId(
 
 async function processSubscriptionEvent(event: Stripe.Event) {
   let subscription: Stripe.Subscription | null = null;
+  let forcedPlan: "free" | "pro" | undefined;
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
@@ -59,6 +60,10 @@ async function processSubscriptionEvent(event: Stripe.Event) {
     }
 
     subscription = await stripe!.subscriptions.retrieve(subscriptionId);
+
+    if (session.payment_status === "paid") {
+      forcedPlan = "pro";
+    }
   } else {
     subscription = event.data.object as Stripe.Subscription;
   }
@@ -80,11 +85,14 @@ async function processSubscriptionEvent(event: Stripe.Event) {
 
   const upserted = await upsertUserSubscription(
     userId,
-    toSubscriptionMetadata({
-      stripeCustomerId: customerId,
-      stripeSubscriptionId: subscription.id,
-      stripeSubscriptionStatus: subscription.status,
-    }),
+    {
+      ...toSubscriptionMetadata({
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscription.id,
+        stripeSubscriptionStatus: subscription.status,
+      }),
+      plan: forcedPlan,
+    },
   );
 
   console.log("[stripe:webhook] subscription upserted", {
