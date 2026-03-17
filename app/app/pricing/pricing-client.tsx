@@ -31,7 +31,8 @@ export default function PricingClient({ isSignedIn }: PricingClientProps) {
         headers: { "Content-Type": "application/json" },
       });
 
-      const payload = (await response.json()) as { error?: string; url?: string };
+      const rawBody = await response.text();
+      const payload = rawBody ? (JSON.parse(rawBody) as { error?: string; url?: string }) : {};
 
       if (!response.ok || !payload.url) {
         throw new Error(payload.error ?? "Unable to start checkout");

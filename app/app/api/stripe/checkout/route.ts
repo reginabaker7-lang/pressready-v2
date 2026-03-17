@@ -33,25 +33,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing request origin" }, { status: 400 });
   }
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    line_items: [{ price: proPriceId, quantity: 1 }],
-    success_url: `${origin}/account?checkout=success`,
-    cancel_url: `${origin}/pricing?checkout=cancel`,
-    client_reference_id: userId,
-    subscription_data: {
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      line_items: [{ price: proPriceId, quantity: 1 }],
+      success_url: `${origin}/account?checkout=success`,
+      cancel_url: `${origin}/pricing?checkout=cancel`,
+      client_reference_id: userId,
+      subscription_data: {
+        metadata: {
+          clerkUserId: userId,
+        },
+      },
       metadata: {
         clerkUserId: userId,
       },
-    },
-    metadata: {
-      clerkUserId: userId,
-    },
-  });
+    });
 
-  if (!session.url) {
-    return NextResponse.json({ error: "Unable to create checkout session" }, { status: 500 });
+    if (!session.url) {
+      return NextResponse.json({ error: "Unable to create checkout session" }, { status: 500 });
+    }
+
+    return NextResponse.json({ url: session.url });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to create checkout session";
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json({ url: session.url });
 }
