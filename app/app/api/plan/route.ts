@@ -13,7 +13,12 @@ export async function GET() {
     return NextResponse.json({ plan: "free", isSignedIn: false }, { status: 200 });
   }
 
-  const plan = await getUserPlan(userId);
-
-  return NextResponse.json({ plan, isSignedIn: true }, { status: 200 });
+  try {
+    const plan = await getUserPlan(userId);
+    return NextResponse.json({ plan, isSignedIn: true }, { status: 200 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load plan";
+    console.error("[plan] failed", { userId, message });
+    return NextResponse.json({ error: message, isSignedIn: true }, { status: 500 });
+  }
 }
