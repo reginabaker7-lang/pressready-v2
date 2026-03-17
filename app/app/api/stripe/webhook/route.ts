@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import {
   findUserIdByStripeCustomerId,
   toSubscriptionMetadata,
-  updateUserSubscriptionMetadata,
+  upsertUserSubscription,
 } from "@/app/lib/subscription";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -55,16 +55,12 @@ async function processSubscriptionEvent(event: Stripe.Event) {
     const subscriptionId = getStringId(session.subscription);
 
     if (!subscriptionId) {
-      return;
+      throw new Error("checkout.session.completed missing subscription id");
     }
 
     subscription = await stripe!.subscriptions.retrieve(subscriptionId);
   } else {
     subscription = event.data.object as Stripe.Subscription;
-  }
-
-  if (!subscription) {
-    return;
   }
 
   const customerId = getStringId(subscription.customer);
@@ -79,15 +75,10 @@ async function processSubscriptionEvent(event: Stripe.Event) {
   });
 
   if (!userId) {
-    console.warn("[stripe:webhook] user not resolved", {
-      type: event.type,
-      subscriptionId: subscription.id,
-      customerId,
-    });
-    return;
+    throw new Error(`Unable to resolve clerk user id for subscription ${subscription.id}`);
   }
 
-  await updateUserSubscriptionMetadata(
+  const upserted = await upsertUserSubscription(
     userId,
     toSubscriptionMetadata({
       stripeCustomerId: customerId,
@@ -95,6 +86,14 @@ async function processSubscriptionEvent(event: Stripe.Event) {
       stripeSubscriptionStatus: subscription.status,
     }),
   );
+
+  console.log("[stripe:webhook] subscription upserted", {
+    table: process.env.SUPABASE_SUBSCRIPTIONS_TABLE ?? "subscriptions",
+    userId: upserted.clerk_user_id,
+    plan: upserted.plan,
+    subscriptionId: upserted.stripe_subscription_id,
+    status: upserted.stripe_subscription_status,
+  });
 }
 
 export async function GET() {
@@ -115,14 +114,22 @@ export async function POST(req: Request) {
   const signature = req.headers.get("stripe-signature");
 
   if (!signature) {
+    console.error("[stripe:webhook] Missing Stripe signature header");
     return NextResponse.json({ error: "Missing Stripe signature" }, { status: 400 });
   }
 
   const payload = await req.text();
+  let event: Stripe.Event;
 
   try {
-    const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid Stripe signature";
+    console.error("[stripe:webhook] signature verification failed", { message });
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 
+  try {
     switch (event.type) {
       case "checkout.session.completed":
       case "customer.subscription.created":
@@ -134,10 +141,10 @@ export async function POST(req: Request) {
         console.log("[stripe:webhook] ignored event", { type: event.type });
     }
 
-    return NextResponse.json({ received: true }, { status: 200 });
+    return NextResponse.json({ received: true, type: event.type }, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid Stripe signature";
-    console.error("[stripe:webhook] signature verification failed", { message });
-    return NextResponse.json({ error: message }, { status: 400 });
+    const message = error instanceof Error ? error.message : "Failed to process Stripe event";
+    console.error("[stripe:webhook] processing failed", { type: event.type, message });
+    return NextResponse.json({ error: message, type: event.type }, { status: 500 });
   }
 }
