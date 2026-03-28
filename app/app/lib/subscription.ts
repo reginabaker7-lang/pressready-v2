@@ -9,9 +9,15 @@ const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
   "unpaid",
 ]);
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const subscriptionsTable = process.env.SUPABASE_SUBSCRIPTIONS_TABLE ?? "subscriptions";
+
+function maskSecret(value: string | undefined): string {
+  if (!value) return "missing";
+  if (value.length <= 8) return "***";
+  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+}
 
 type SubscriptionMetadata = {
   plan?: PlanName;
@@ -31,8 +37,29 @@ type SubscriptionRow = {
 
 function getSupabaseAdminClient() {
   if (!supabaseUrl || !supabaseServiceRoleKey) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    console.error("[subscription] missing supabase config", {
+      hasSupabaseUrl: Boolean(supabaseUrl),
+      hasServiceRoleKey: Boolean(supabaseServiceRoleKey),
+      hasSupabaseUrlEnv: Boolean(process.env.SUPABASE_URL),
+      hasNextPublicSupabaseUrlEnv: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    });
+    throw new Error("Missing SUPABASE_URL/NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
+
+  let origin = "invalid-url";
+  try {
+    origin = new URL(supabaseUrl).origin;
+  } catch {
+    // keep default marker so logs show malformed URL
+  }
+
+  console.log("[subscription] create supabase admin client", {
+    origin,
+    usingSupabaseUrlEnv: Boolean(process.env.SUPABASE_URL),
+    usingNextPublicSupabaseUrlEnv: !process.env.SUPABASE_URL && Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    serviceRoleKeyPreview: maskSecret(supabaseServiceRoleKey),
+    table: subscriptionsTable,
+  });
 
   return createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: { persistSession: false },
@@ -90,13 +117,33 @@ export async function upsertUserSubscription(
 export async function getUserSubscription(userId: string): Promise<SubscriptionRow | null> {
   const supabase = getSupabaseAdminClient();
 
-  const { data, error } = await supabase
-    .from(subscriptionsTable)
-    .select(
-      "clerk_user_id,plan,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,updated_at",
-    )
-    .eq("clerk_user_id", userId)
-    .maybeSingle();
+  console.log("[subscription] querying subscription row", {
+    table: subscriptionsTable,
+    column: "clerk_user_id",
+    userId,
+  });
+
+  let data: unknown = null;
+  let error: { message: string } | null = null;
+  try {
+    const result = await supabase
+      .from(subscriptionsTable)
+      .select(
+        "clerk_user_id,plan,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,updated_at",
+      )
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
+    data = result.data;
+    error = result.error;
+  } catch (queryError) {
+    const message = queryError instanceof Error ? queryError.message : String(queryError);
+    console.error("[subscription] query threw before response", {
+      table: subscriptionsTable,
+      userId,
+      message,
+    });
+    throw queryError;
+  }
 
   if (error) {
     throw new Error(`[subscription] failed to read ${subscriptionsTable}: ${error.message}`);
