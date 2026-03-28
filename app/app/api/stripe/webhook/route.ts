@@ -9,13 +9,32 @@ import {
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+const stripe = stripeSecretKey
+  ? new Stripe(stripeSecretKey, { apiVersion: "2026-02-25.clover" })
+  : null;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function getStringId(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+function getCustomerId(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (
+    value &&
+    typeof value === "object" &&
+    "id" in value &&
+    typeof (value as { id?: unknown }).id === "string"
+  ) {
+    return (value as { id: string }).id;
+  }
+
+  return null;
 }
 
 async function resolveClerkUserId(
@@ -39,7 +58,7 @@ async function resolveClerkUserId(
     }
   }
 
-  const customerId = getStringId(subscription.customer);
+  const customerId = getCustomerId(subscription.customer);
   if (!customerId) {
     return null;
   }
@@ -56,7 +75,11 @@ async function processSubscriptionEvent(event: Stripe.Event) {
     const subscriptionId = getStringId(session.subscription);
 
     if (!subscriptionId) {
-      throw new Error("checkout.session.completed missing subscription id");
+      console.warn("[stripe:webhook] checkout session missing subscription id", {
+        sessionId: session.id,
+        mode: session.mode,
+      });
+      return;
     }
 
     subscription = await stripe!.subscriptions.retrieve(subscriptionId);
@@ -68,7 +91,7 @@ async function processSubscriptionEvent(event: Stripe.Event) {
     subscription = event.data.object as Stripe.Subscription;
   }
 
-  const customerId = getStringId(subscription.customer);
+  const customerId = getCustomerId(subscription.customer);
   const userId = await resolveClerkUserId(event, subscription);
 
   console.log("[stripe:webhook] event", {
@@ -80,7 +103,12 @@ async function processSubscriptionEvent(event: Stripe.Event) {
   });
 
   if (!userId) {
-    throw new Error(`Unable to resolve clerk user id for subscription ${subscription.id}`);
+    console.warn("[stripe:webhook] unable to resolve clerk user id", {
+      type: event.type,
+      subscriptionId: subscription.id,
+      customerId,
+    });
+    return;
   }
 
   const upserted = await upsertUserSubscription(
@@ -105,7 +133,10 @@ async function processSubscriptionEvent(event: Stripe.Event) {
 }
 
 export async function GET() {
-  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+  return NextResponse.json(
+    { error: "Method not allowed" },
+    { status: 405, headers: { Allow: "POST" } },
+  );
 }
 
 export async function POST(req: Request) {
