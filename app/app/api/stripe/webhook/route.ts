@@ -41,14 +41,14 @@ async function resolveClerkUserId(
   event: Stripe.Event,
   subscription: Stripe.Subscription,
 ): Promise<string | null> {
-  const metadataUserId = getStringId(subscription.metadata?.clerkUserId);
+  const metadataUserId = getStringId(subscription.metadata?.clerk_user_id);
   if (metadataUserId) {
     return metadataUserId;
   }
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    const fromSessionMetadata = getStringId(session.metadata?.clerkUserId);
+    const fromSessionMetadata = getStringId(session.metadata?.clerk_user_id);
     if (fromSessionMetadata) {
       return fromSessionMetadata;
     }
