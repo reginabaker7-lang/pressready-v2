@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 
+import type { PlanName } from "@/app/lib/subscription";
+
 type UpgradeToProButtonProps = {
   isSignedIn: boolean;
+  currentPlan: PlanName;
 };
 
-export default function UpgradeToProButton({ isSignedIn }: UpgradeToProButtonProps) {
+export default function UpgradeToProButton({ isSignedIn, currentPlan }: UpgradeToProButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const isPro = currentPlan === "pro";
 
   const handleUpgrade = async () => {
     if (!isSignedIn) {
@@ -38,6 +42,10 @@ export default function UpgradeToProButton({ isSignedIn }: UpgradeToProButtonPro
       setIsLoading(false);
     }
   };
+
+  if (isPro) {
+    return null;
+  }
 
   return (
     <button

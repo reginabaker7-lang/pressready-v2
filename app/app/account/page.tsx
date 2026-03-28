@@ -3,6 +3,8 @@ import Link from "next/link";
 import { getAuthFromServer } from "@/app/lib/clerk";
 import { getUserPlan, getUserSubscription } from "@/app/lib/subscription";
 
+import AccountSignOutButton from "@/app/account/sign-out-button";
+
 export default async function AccountPage() {
   const { userId } = await getAuthFromServer();
 
@@ -35,13 +37,14 @@ export default async function AccountPage() {
             <p className="text-sm text-red-600">Subscription error: {subscriptionError}</p>
           ) : null}
 
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 flex flex-wrap gap-3">
             <Link className="border border-current px-4 py-2 rounded-lg" href="/pricing">
               Pricing
             </Link>
             <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
               History
             </Link>
+            <AccountSignOutButton />
           </div>
         </div>
       ) : (
