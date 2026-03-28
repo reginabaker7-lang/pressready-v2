@@ -3,6 +3,8 @@ import Link from "next/link";
 import { getAuthFromServer } from "@/app/lib/clerk";
 import { getUserPlan, getUserSubscription } from "@/app/lib/subscription";
 
+import { SignOutControl } from "./sign-out-control";
+
 export default async function AccountPage() {
   const { userId } = await getAuthFromServer();
 
@@ -42,6 +44,10 @@ export default async function AccountPage() {
             <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
               History
             </Link>
+          </div>
+
+          <div className="pt-2">
+            <SignOutControl />
           </div>
         </div>
       ) : (
