@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SignOutButton } from "@clerk/nextjs";
 
 import { getAuthFromServer } from "@/app/lib/clerk";
 import { getUserPlan, getUserSubscription } from "@/app/lib/subscription";
@@ -42,6 +43,11 @@ export default async function AccountPage() {
             <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
               History
             </Link>
+            <SignOutButton>
+              <button className="rounded-lg border border-[var(--pressready-gold)] bg-black px-4 py-2 text-[var(--pressready-gold)]">
+                Sign out
+              </button>
+            </SignOutButton>
           </div>
         </div>
       ) : (
