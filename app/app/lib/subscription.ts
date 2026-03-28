@@ -9,9 +9,21 @@ const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
   "unpaid",
 ]);
 
-const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrlRaw = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const subscriptionsTable = process.env.SUPABASE_SUBSCRIPTIONS_TABLE ?? "subscriptions";
+
+function normalizeSupabaseUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim().replace(/^['"]|['"]$/g, "");
+  if (!trimmed) return undefined;
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed.replace(/\/+$/, "");
+  }
+  return `https://${trimmed.replace(/\/+$/, "")}`;
+}
+
+const supabaseUrl = normalizeSupabaseUrl(supabaseUrlRaw);
 
 function maskSecret(value: string | undefined): string {
   if (!value) return "missing";
@@ -57,6 +69,7 @@ function getSupabaseAdminClient() {
     origin,
     usingSupabaseUrlEnv: Boolean(process.env.SUPABASE_URL),
     usingNextPublicSupabaseUrlEnv: !process.env.SUPABASE_URL && Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    supabaseUrlWasNormalized: supabaseUrlRaw !== supabaseUrl,
     serviceRoleKeyPreview: maskSecret(supabaseServiceRoleKey),
     table: subscriptionsTable,
   });
@@ -121,6 +134,7 @@ export async function getUserSubscription(userId: string): Promise<SubscriptionR
     table: subscriptionsTable,
     column: "clerk_user_id",
     userId,
+    restPath: `${supabaseUrl ?? "missing-url"}/rest/v1/${subscriptionsTable}?clerk_user_id=eq.<user-id>`,
   });
 
   let data: unknown = null;
