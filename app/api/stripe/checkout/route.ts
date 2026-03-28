@@ -44,11 +44,11 @@ export async function POST(req: Request) {
       client_reference_id: userId,
       subscription_data: {
         metadata: {
-          clerkUserId: userId,
+          clerk_user_id: userId,
         },
       },
       metadata: {
-        clerkUserId: userId,
+        clerk_user_id: userId,
       },
     });
 
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       userId,
       sessionId: session.id,
       mode: session.mode,
-      clerkUserIdInMetadata: session.metadata?.clerkUserId ?? null,
+      clerkUserIdInMetadata: session.metadata?.clerk_user_id ?? null,
     });
 
     return NextResponse.json({ url: session.url });
