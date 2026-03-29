@@ -4,7 +4,13 @@ import { SignOutButton } from "./sign-out-button";
 import { getAuthFromServer } from "@/app/lib/clerk";
 import { getUserPlan, getUserSubscription } from "@/app/lib/subscription";
 
-export default async function AccountPage() {
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due", "unpaid"]);
+
+type AccountPageProps = {
+  searchParams?: { billing?: string };
+};
+
+export default async function AccountPage({ searchParams }: AccountPageProps) {
   const { userId } = await getAuthFromServer();
 
   let plan: "free" | "pro" = "free";
@@ -22,6 +28,16 @@ export default async function AccountPage() {
     }
   }
 
+  const hasSubscriptionAccess =
+    plan === "pro" || ACTIVE_SUBSCRIPTION_STATUSES.has(subscriptionStatus);
+
+  const billingErrorMessage =
+    searchParams?.billing === "missing_customer"
+      ? "Unable to open billing portal: no Stripe customer was found for this account."
+      : searchParams?.billing === "error"
+        ? "Unable to open billing portal right now. Please try again."
+        : null;
+
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
       <h1 className="text-4xl font-bold">Account</h1>
@@ -35,6 +51,7 @@ export default async function AccountPage() {
           {subscriptionError ? (
             <p className="text-sm text-red-600">Subscription error: {subscriptionError}</p>
           ) : null}
+          {billingErrorMessage ? <p className="text-sm text-red-600">{billingErrorMessage}</p> : null}
 
           <div className="mt-4 flex gap-3">
             <Link className="border border-current px-4 py-2 rounded-lg" href="/pricing">
@@ -43,6 +60,11 @@ export default async function AccountPage() {
             <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
               History
             </Link>
+            {hasSubscriptionAccess ? (
+              <Link className="border border-current px-4 py-2 rounded-lg" href="/api/stripe/portal">
+                Manage Subscription
+              </Link>
+            ) : null}
             <SignOutButton />
           </div>
         </div>
