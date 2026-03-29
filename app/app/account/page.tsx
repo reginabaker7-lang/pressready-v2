@@ -10,12 +10,14 @@ export default async function AccountPage() {
   let plan: "free" | "pro" = "free";
   let subscriptionStatus = "none";
   let subscriptionError: string | null = null;
+  let customerId: string | null = null;
 
   if (userId) {
     try {
       const subscription = await getUserSubscription(userId);
       plan = await getUserPlan(userId);
       subscriptionStatus = subscription?.stripe_subscription_status ?? "none";
+      customerId = subscription?.stripe_customer_id ?? null;
     } catch (error) {
       subscriptionError = error instanceof Error ? error.message : "Failed to load subscription";
       console.error("[account] failed to load subscription", { userId, subscriptionError });
@@ -43,6 +45,11 @@ export default async function AccountPage() {
             <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
               History
             </Link>
+            {customerId ? (
+              <Link className="border border-current px-4 py-2 rounded-lg" href="/api/stripe/portal">
+                Manage Subscription
+              </Link>
+            ) : null}
             <SignOutButton />
           </div>
         </div>
