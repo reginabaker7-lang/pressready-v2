@@ -10,7 +10,15 @@ export async function GET() {
   const { userId } = await auth();
 
   if (!userId) {
-    return NextResponse.json({ plan: "free", isSignedIn: false }, { status: 200 });
+    return NextResponse.json(
+      {
+        plan: "free",
+        customerId: null,
+        subscriptionStatus: "none",
+        isSignedIn: false,
+      },
+      { status: 200 },
+    );
   }
 
   try {
@@ -23,6 +31,7 @@ export async function GET() {
       {
         plan,
         customerId: subscription?.stripe_customer_id ?? null,
+        subscriptionStatus: subscription?.stripe_subscription_status ?? "none",
         isSignedIn: true,
       },
       { status: 200 },
@@ -30,6 +39,15 @@ export async function GET() {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load plan";
     console.error("[plan] failed", { userId, message });
-    return NextResponse.json({ error: message, isSignedIn: true }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: message,
+        plan: "free",
+        customerId: null,
+        subscriptionStatus: "none",
+        isSignedIn: true,
+      },
+      { status: 500 },
+    );
   }
 }

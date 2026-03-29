@@ -4,25 +4,39 @@ import { SignOutButton } from "./sign-out-button";
 import { getAuthFromServer } from "@/app/lib/clerk";
 import { getUserPlan, getUserSubscription } from "@/app/lib/subscription";
 
-export default async function AccountPage() {
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due", "unpaid"]);
+
+type AccountPageProps = {
+  searchParams?: { billing?: string };
+};
+
+export default async function AccountPage({ searchParams }: AccountPageProps) {
   const { userId } = await getAuthFromServer();
 
   let plan: "free" | "pro" = "free";
   let subscriptionStatus = "none";
   let subscriptionError: string | null = null;
-  let customerId: string | null = null;
 
   if (userId) {
     try {
       const subscription = await getUserSubscription(userId);
       plan = await getUserPlan(userId);
       subscriptionStatus = subscription?.stripe_subscription_status ?? "none";
-      customerId = subscription?.stripe_customer_id ?? null;
     } catch (error) {
       subscriptionError = error instanceof Error ? error.message : "Failed to load subscription";
       console.error("[account] failed to load subscription", { userId, subscriptionError });
     }
   }
+
+  const hasSubscriptionAccess =
+    plan === "pro" || ACTIVE_SUBSCRIPTION_STATUSES.has(subscriptionStatus);
+
+  const billingErrorMessage =
+    searchParams?.billing === "missing_customer"
+      ? "Unable to open billing portal: no Stripe customer was found for this account."
+      : searchParams?.billing === "error"
+        ? "Unable to open billing portal right now. Please try again."
+        : null;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
@@ -37,6 +51,7 @@ export default async function AccountPage() {
           {subscriptionError ? (
             <p className="text-sm text-red-600">Subscription error: {subscriptionError}</p>
           ) : null}
+          {billingErrorMessage ? <p className="text-sm text-red-600">{billingErrorMessage}</p> : null}
 
           <div className="mt-4 flex gap-3">
             <Link className="border border-current px-4 py-2 rounded-lg" href="/pricing">
@@ -45,7 +60,7 @@ export default async function AccountPage() {
             <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
               History
             </Link>
-            {customerId ? (
+            {hasSubscriptionAccess ? (
               <Link className="border border-current px-4 py-2 rounded-lg" href="/api/stripe/portal">
                 Manage Subscription
               </Link>

@@ -29,7 +29,7 @@ async function createPortalResponse(req: Request) {
   const customerId = subscription?.stripe_customer_id ?? null;
 
   if (!customerId) {
-    return NextResponse.redirect(new URL("/account?billing=unavailable", req.url));
+    return NextResponse.redirect(new URL("/account?billing=missing_customer", req.url));
   }
 
   try {
