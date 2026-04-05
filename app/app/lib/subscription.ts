@@ -43,6 +43,10 @@ function planFromStatus(status: string | null | undefined): PlanName {
   return status && ACTIVE_SUBSCRIPTION_STATUSES.has(status) ? "pro" : "free";
 }
 
+export function isActiveSubscriptionStatus(status: string | null | undefined): boolean {
+  return Boolean(status && ACTIVE_SUBSCRIPTION_STATUSES.has(status));
+}
+
 export function toSubscriptionMetadata(args: {
   stripeCustomerId?: string | null;
   stripeSubscriptionId?: string | null;

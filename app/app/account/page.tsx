@@ -2,9 +2,9 @@ import Link from "next/link";
 
 import { SignOutButton } from "./sign-out-button";
 import { getAuthFromServer } from "@/app/lib/clerk";
-import { getUserSubscription } from "@/app/lib/subscription";
+import { getUserSubscription, isActiveSubscriptionStatus } from "@/app/lib/subscription";
 
-const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due", "unpaid"]);
+export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
   const { userId } = await getAuthFromServer();
@@ -16,9 +16,7 @@ export default async function AccountPage() {
   if (userId) {
     try {
       const subscription = await getUserSubscription(userId);
-      plan = ACTIVE_SUBSCRIPTION_STATUSES.has(subscription?.stripe_subscription_status ?? "")
-        ? "pro"
-        : "free";
+      plan = isActiveSubscriptionStatus(subscription?.stripe_subscription_status) ? "pro" : "free";
       subscriptionStatus = subscription?.stripe_subscription_status ?? "none";
     } catch (error) {
       subscriptionError = error instanceof Error ? error.message : "Failed to load subscription";
