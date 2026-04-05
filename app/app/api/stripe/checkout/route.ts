@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -29,6 +29,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const user = await currentUser();
+  const userEmail = user?.primaryEmailAddress?.emailAddress ?? null;
+
+  if (!userEmail) {
+    console.error("[stripe:checkout] Missing primary email for authenticated user", { userId });
+    return NextResponse.json({ error: "Unable to resolve user email" }, { status: 400 });
+  }
+
   const origin = req.headers.get("origin");
 
   if (!origin) {
@@ -36,19 +44,33 @@ export async function POST(req: Request) {
   }
 
   try {
+    const customer = await stripe.customers.create({
+      email: userEmail,
+      metadata: {
+        clerkUserId: userId,
+        userEmail,
+        plan: "pro",
+      },
+    });
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: proPriceId, quantity: 1 }],
       success_url: `${origin}/account?checkout=success`,
       cancel_url: `${origin}/pricing?checkout=cancel`,
       client_reference_id: userId,
+      customer: customer.id,
       subscription_data: {
         metadata: {
-          clerk_user_id: userId,
+          clerkUserId: userId,
+          userEmail,
+          plan: "pro",
         },
       },
       metadata: {
-        clerk_user_id: userId,
+        clerkUserId: userId,
+        userEmail,
+        plan: "pro",
       },
     });
 
@@ -59,9 +81,11 @@ export async function POST(req: Request) {
 
     console.log("[stripe:checkout] session created", {
       userId,
+      userEmail,
       sessionId: session.id,
+      customerId: customer.id,
       mode: session.mode,
-      clerkUserIdInMetadata: session.metadata?.clerk_user_id ?? null,
+      metadata: session.metadata ?? {},
     });
 
     return NextResponse.json({ url: session.url });
