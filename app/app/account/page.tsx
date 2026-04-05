@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { SignOutButton } from "./sign-out-button";
+import { CheckoutRefresh } from "./checkout-refresh";
 import { getAuthFromServer } from "@/app/lib/clerk";
 import { getUserSubscription, isActiveSubscriptionStatus } from "@/app/lib/subscription";
 
@@ -33,6 +34,7 @@ export default async function AccountPage() {
 
       {userId ? (
         <div className="mt-6 space-y-3">
+          <CheckoutRefresh initialPlan={plan} />
           <p>You’re signed in.</p>
           <p className="text-sm opacity-80">User ID: {userId}</p>
           <p className="text-sm opacity-80">Plan: {plan === "pro" ? "Pro" : "Free"}</p>

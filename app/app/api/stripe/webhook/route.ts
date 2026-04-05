@@ -63,6 +63,68 @@ function getCurrentPeriodEndIso(subscription: Stripe.Subscription): string | nul
   }
 
   return new Date(currentPeriodEnd * 1000).toISOString();
+function getSubscriptionPriceId(subscription: Stripe.Subscription): string | null {
+  const priceId = subscription.items.data[0]?.price?.id;
+  return typeof priceId === "string" ? priceId : null;
+}
+
+function toIsoFromUnixSeconds(value: number | null | undefined): string | null {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return null;
+  }
+
+  return new Date(value * 1000).toISOString();
+}
+
+function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): string | null {
+  if ("current_period_end" in subscription && typeof subscription.current_period_end === "number") {
+    return toIsoFromUnixSeconds(subscription.current_period_end);
+  }
+
+  return null;
+}
+
+async function fetchSubscriptionById(
+  subscriptionId: string,
+): Promise<Stripe.Subscription | null> {
+  try {
+    return await stripe!.subscriptions.retrieve(subscriptionId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to retrieve subscription";
+    console.error("[stripe:webhook] subscription lookup failed", { subscriptionId, message });
+    return null;
+  }
+}
+
+async function processInvoiceEvent(event: Stripe.Event) {
+  const invoice = event.data.object as Stripe.Invoice;
+  const subscriptionId =
+    ("parent" in invoice &&
+    invoice.parent &&
+    typeof invoice.parent === "object" &&
+    "subscription_details" in invoice.parent &&
+    invoice.parent.subscription_details &&
+    typeof invoice.parent.subscription_details === "object" &&
+    "subscription" in invoice.parent.subscription_details
+      ? getStringId(invoice.parent.subscription_details.subscription)
+      : null) ?? null;
+
+  if (!subscriptionId) {
+    console.warn("[stripe:webhook] invoice event missing subscription id", {
+      type: event.type,
+      invoiceId: invoice.id,
+      customerId: getCustomerId(invoice.customer),
+    });
+    return;
+  }
+
+  const subscription = await fetchSubscriptionById(subscriptionId);
+
+  if (!subscription) {
+    return;
+  }
+
+  await processSubscriptionEvent(event, subscription);
 }
 
 async function resolveClerkUserId(
@@ -134,11 +196,14 @@ async function resolveClerkUserId(
   return userIdByCustomer;
 }
 
-async function processSubscriptionEvent(event: Stripe.Event) {
-  let subscription: Stripe.Subscription | null = null;
+async function processSubscriptionEvent(
+  event: Stripe.Event,
+  sourceSubscription?: Stripe.Subscription,
+) {
+  let subscription: Stripe.Subscription | null = sourceSubscription ?? null;
   let forcedPlan: "free" | "pro" | undefined;
 
-  if (event.type === "checkout.session.completed") {
+  if (!subscription && event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const subscriptionId = getStringId(session.subscription);
 
@@ -150,25 +215,41 @@ async function processSubscriptionEvent(event: Stripe.Event) {
       return;
     }
 
-    subscription = await stripe!.subscriptions.retrieve(subscriptionId);
+    subscription = await fetchSubscriptionById(subscriptionId);
+
+    if (!subscription) {
+      return;
+    }
 
     if (session.payment_status === "paid") {
       forcedPlan = "pro";
     }
-  } else {
+  } else if (!subscription) {
     subscription = event.data.object as Stripe.Subscription;
   }
 
   const customerId = getCustomerId(subscription.customer);
   const userId = await resolveClerkUserId(event, subscription);
+  const priceId = getSubscriptionPriceId(subscription);
+  const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
 
   console.log("[stripe:webhook] event", {
     type: event.type,
     subscriptionId: subscription.id,
     customerId,
     userId,
+    priceId,
     status: subscription.status,
+    currentPeriodEnd,
+    livemode: event.livemode,
   });
+
+  if (!customerId) {
+    console.warn("[stripe:webhook] subscription missing Stripe customer id", {
+      type: event.type,
+      subscriptionId: subscription.id,
+    });
+  }
 
   if (!userId) {
     console.warn("[stripe:webhook] unable to resolve clerk user id", {
@@ -186,8 +267,8 @@ async function processSubscriptionEvent(event: Stripe.Event) {
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscription.id,
         stripeSubscriptionStatus: subscription.status,
-        stripePriceId: getPriceId(subscription),
-        stripeCurrentPeriodEnd: getCurrentPeriodEndIso(subscription),
+        stripePriceId: priceId,
+        stripeCurrentPeriodEnd: currentPeriodEnd,
       }),
       plan: forcedPlan,
     },
@@ -245,12 +326,34 @@ export async function POST(req: Request) {
   }
 
   try {
+    const accountMode = stripeSecretKey.startsWith("sk_live_")
+      ? "live"
+      : stripeSecretKey.startsWith("sk_test_")
+        ? "test"
+        : "unknown";
+
+    if (
+      accountMode !== "unknown" &&
+      ((accountMode === "live" && !event.livemode) || (accountMode === "test" && event.livemode))
+    ) {
+      console.error("[stripe:webhook] mode mismatch between key and event", {
+        accountMode,
+        eventLivemode: event.livemode,
+        eventType: event.type,
+      });
+      return NextResponse.json({ error: "Stripe mode mismatch" }, { status: 400 });
+    }
+
     switch (event.type) {
       case "checkout.session.completed":
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted":
         await processSubscriptionEvent(event);
+        break;
+      case "invoice.paid":
+      case "invoice.payment_failed":
+        await processInvoiceEvent(event);
         break;
       default:
         console.log("[stripe:webhook] ignored event", { type: event.type });

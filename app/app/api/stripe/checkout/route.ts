@@ -52,6 +52,43 @@ export async function POST(req: Request) {
         plan: "pro",
       },
     });
+    const configuredMode = stripeSecretKey.startsWith("sk_live_")
+      ? "live"
+      : stripeSecretKey.startsWith("sk_test_")
+        ? "test"
+        : "unknown";
+    const priceMode = proPriceId.startsWith("price_")
+      ? "unknown"
+      : proPriceId.startsWith("price_live_")
+        ? "live"
+        : proPriceId.startsWith("price_test_")
+          ? "test"
+          : "unknown";
+
+    if (configuredMode !== "unknown" && priceMode !== "unknown" && configuredMode !== priceMode) {
+      console.error("[stripe:checkout] Stripe key/price mode mismatch", {
+        configuredMode,
+        proPriceId,
+      });
+      return NextResponse.json({ error: "Stripe mode mismatch for price" }, { status: 500 });
+    }
+
+    const price = await stripe.prices.retrieve(proPriceId, { expand: ["product"] });
+
+    if (!price.active) {
+      console.error("[stripe:checkout] Stripe price is not active", { userId, proPriceId });
+      return NextResponse.json({ error: "Stripe price is not active" }, { status: 500 });
+    }
+
+    if (configuredMode !== "unknown" && price.livemode !== (configuredMode === "live")) {
+      console.error("[stripe:checkout] Stripe price livemode mismatch", {
+        userId,
+        configuredMode,
+        priceLivemode: price.livemode,
+        proPriceId,
+      });
+      return NextResponse.json({ error: "Stripe price account mismatch" }, { status: 500 });
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -86,6 +123,8 @@ export async function POST(req: Request) {
       customerId: customer.id,
       mode: session.mode,
       metadata: session.metadata ?? {},
+      priceId: proPriceId,
+      clerkUserIdInMetadata: session.metadata?.clerk_user_id ?? null,
     });
 
     return NextResponse.json({ url: session.url });
