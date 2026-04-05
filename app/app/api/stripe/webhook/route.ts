@@ -37,6 +37,32 @@ function getCustomerId(value: unknown): string | null {
   return null;
 }
 
+function getClerkUserIdFromMetadata(metadata: Stripe.Metadata | null | undefined): string | null {
+  const fromCamel = getStringId(metadata?.clerkUserId);
+  if (fromCamel) {
+    return fromCamel;
+  }
+
+  const fromSnake = getStringId(metadata?.clerk_user_id);
+  return fromSnake;
+}
+
+function getPriceId(subscription: Stripe.Subscription): string | null {
+  const [firstItem] = subscription.items.data;
+  return firstItem?.price?.id ?? null;
+}
+
+function getCurrentPeriodEndIso(subscription: Stripe.Subscription): string | null {
+  const currentPeriodEnd =
+    typeof (subscription as { current_period_end?: unknown }).current_period_end === "number"
+      ? (subscription as unknown as { current_period_end: number }).current_period_end
+      : null;
+
+  if (!currentPeriodEnd) {
+    return null;
+  }
+
+  return new Date(currentPeriodEnd * 1000).toISOString();
 function getSubscriptionPriceId(subscription: Stripe.Subscription): string | null {
   const priceId = subscription.items.data[0]?.price?.id;
   return typeof priceId === "string" ? priceId : null;
@@ -105,17 +131,27 @@ async function resolveClerkUserId(
   event: Stripe.Event,
   subscription: Stripe.Subscription,
 ): Promise<string | null> {
-  const metadataUserId = getStringId(subscription.metadata?.clerk_user_id);
+  const metadataUserId = getClerkUserIdFromMetadata(subscription.metadata);
   if (metadataUserId) {
     return metadataUserId;
   }
 
+  console.warn("[stripe:webhook] missing clerkUserId in subscription metadata", {
+    type: event.type,
+    subscriptionId: subscription.id,
+  });
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    const fromSessionMetadata = getStringId(session.metadata?.clerk_user_id);
+    const fromSessionMetadata = getClerkUserIdFromMetadata(session.metadata);
     if (fromSessionMetadata) {
       return fromSessionMetadata;
     }
+
+    console.warn("[stripe:webhook] missing clerkUserId in checkout session metadata", {
+      type: event.type,
+      sessionId: session.id,
+    });
 
     if (session.client_reference_id) {
       return session.client_reference_id;
@@ -124,10 +160,40 @@ async function resolveClerkUserId(
 
   const customerId = getCustomerId(subscription.customer);
   if (!customerId) {
+    console.warn("[stripe:webhook] missing customer id while resolving clerk user id", {
+      type: event.type,
+      subscriptionId: subscription.id,
+    });
     return null;
   }
 
-  return findUserIdByStripeCustomerId(customerId);
+  try {
+    const customer = await stripe!.customers.retrieve(customerId);
+    if (!("deleted" in customer && customer.deleted)) {
+      const customerMetadataUserId = getClerkUserIdFromMetadata(customer.metadata);
+      if (customerMetadataUserId) {
+        return customerMetadataUserId;
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to retrieve customer";
+    console.warn("[stripe:webhook] customer lookup failed while reading metadata", {
+      type: event.type,
+      customerId,
+      message,
+    });
+  }
+
+  const userIdByCustomer = await findUserIdByStripeCustomerId(customerId);
+  if (!userIdByCustomer) {
+    console.warn("[stripe:webhook] missing customer mapping", {
+      type: event.type,
+      customerId,
+      subscriptionId: subscription.id,
+    });
+  }
+
+  return userIdByCustomer;
 }
 
 async function processSubscriptionEvent(
@@ -208,12 +274,15 @@ async function processSubscriptionEvent(
     },
   );
 
-  console.log("[stripe:webhook] subscription upserted", {
+  console.log("[stripe:webhook] subscription save/update success", {
     table: process.env.SUPABASE_SUBSCRIPTIONS_TABLE ?? "subscriptions",
     userId: upserted.clerk_user_id,
     plan: upserted.plan,
+    customerId: upserted.stripe_customer_id,
     subscriptionId: upserted.stripe_subscription_id,
     status: upserted.stripe_subscription_status,
+    priceId: upserted.stripe_price_id,
+    currentPeriodEnd: upserted.stripe_current_period_end,
   });
 }
 
@@ -249,7 +318,10 @@ export async function POST(req: Request) {
     event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Invalid Stripe signature";
-    console.error("[stripe:webhook] signature verification failed", { message });
+    console.error("[stripe:webhook] signature verification failed", {
+      message,
+      hasSignatureHeader: Boolean(signature),
+    });
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
