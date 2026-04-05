@@ -63,25 +63,6 @@ function getCurrentPeriodEndIso(subscription: Stripe.Subscription): string | nul
   }
 
   return new Date(currentPeriodEnd * 1000).toISOString();
-function getSubscriptionPriceId(subscription: Stripe.Subscription): string | null {
-  const priceId = subscription.items.data[0]?.price?.id;
-  return typeof priceId === "string" ? priceId : null;
-}
-
-function toIsoFromUnixSeconds(value: number | null | undefined): string | null {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return null;
-  }
-
-  return new Date(value * 1000).toISOString();
-}
-
-function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): string | null {
-  if ("current_period_end" in subscription && typeof subscription.current_period_end === "number") {
-    return toIsoFromUnixSeconds(subscription.current_period_end);
-  }
-
-  return null;
 }
 
 async function fetchSubscriptionById(
@@ -230,8 +211,8 @@ async function processSubscriptionEvent(
 
   const customerId = getCustomerId(subscription.customer);
   const userId = await resolveClerkUserId(event, subscription);
-  const priceId = getSubscriptionPriceId(subscription);
-  const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
+  const priceId = getPriceId(subscription);
+  const currentPeriodEnd = getCurrentPeriodEndIso(subscription);
 
   console.log("[stripe:webhook] event", {
     type: event.type,
