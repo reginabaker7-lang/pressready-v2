@@ -43,6 +43,12 @@ export default async function AccountPage() {
             <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
               History
             </Link>
+            <Link
+              className="inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-black transition hover:brightness-95"
+              href="/api/stripe/portal"
+            >
+              Manage Subscription
+            </Link>
             <SignOutButton />
           </div>
         </div>
