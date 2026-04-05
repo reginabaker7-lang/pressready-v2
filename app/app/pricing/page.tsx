@@ -6,7 +6,17 @@ import { getUserPlan } from "@/app/lib/subscription";
 
 export default async function PricingPage() {
   const { userId } = await getAuthFromServer();
-  const plan = userId ? await getUserPlan(userId) : "free";
+
+  let plan: "free" | "pro" = "free";
+
+  if (userId) {
+    try {
+      plan = await getUserPlan(userId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load plan";
+      console.error("[pricing] failed to load plan", { userId, message });
+    }
+  }
 
   return (
     <section className="space-y-6">
