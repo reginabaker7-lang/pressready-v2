@@ -2,7 +2,9 @@ import Link from "next/link";
 
 import { SignOutButton } from "./sign-out-button";
 import { getAuthFromServer } from "@/app/lib/clerk";
-import { getUserPlan, getUserSubscription } from "@/app/lib/subscription";
+import { getUserSubscription, isActiveSubscriptionStatus } from "@/app/lib/subscription";
+
+export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
   const { userId } = await getAuthFromServer();
@@ -14,7 +16,7 @@ export default async function AccountPage() {
   if (userId) {
     try {
       const subscription = await getUserSubscription(userId);
-      plan = await getUserPlan(userId);
+      plan = isActiveSubscriptionStatus(subscription?.stripe_subscription_status) ? "pro" : "free";
       subscriptionStatus = subscription?.stripe_subscription_status ?? "none";
     } catch (error) {
       subscriptionError = error instanceof Error ? error.message : "Failed to load subscription";
@@ -23,7 +25,7 @@ export default async function AccountPage() {
   }
 
   const ctaLabel = plan === "pro" ? "Manage Subscription" : "Upgrade to Pro";
-  const ctaHref = plan === "pro" ? "/api/stripe/portal" : "/api/stripe/checkout";
+  const ctaHref = plan === "pro" ? "/api/stripe/portal" : "/pricing";
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
@@ -43,14 +45,14 @@ export default async function AccountPage() {
             <Link className="border border-current px-4 py-2 rounded-lg" href="/pricing">
               Pricing
             </Link>
-            <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
-              History
-            </Link>
             <Link
               className="inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-[#0b0b0b] transition hover:brightness-95"
               href={ctaHref}
             >
-              {ctaLabel || "Upgrade to Pro"}
+              {ctaLabel}
+            </Link>
+            <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
+              History
             </Link>
             <SignOutButton />
           </div>

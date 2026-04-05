@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-import { getUserSubscription } from "@/app/lib/subscription";
+import { getUserSubscription, isActiveSubscriptionStatus } from "@/app/lib/subscription";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
@@ -27,11 +27,15 @@ export async function GET(req: Request) {
 
   try {
     const subscription = await getUserSubscription(userId);
+    const hasActiveSubscription = isActiveSubscriptionStatus(subscription?.stripe_subscription_status);
     const stripeCustomerId = subscription?.stripe_customer_id;
 
-    if (!stripeCustomerId) {
-      console.log("[stripe:portal] No Stripe customer for user", { userId });
-      return NextResponse.redirect(new URL("/account", req.url));
+    if (!hasActiveSubscription || !stripeCustomerId) {
+      console.log("[stripe:portal] User does not have an active Pro subscription", {
+        userId,
+        status: subscription?.stripe_subscription_status ?? "none",
+      });
+      return NextResponse.redirect(new URL("/pricing", req.url));
     }
 
     const origin = new URL(req.url).origin;
