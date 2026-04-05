@@ -5,8 +5,6 @@ export type PlanName = "free" | "pro";
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
   "active",
   "trialing",
-  "past_due",
-  "unpaid",
 ]);
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -18,6 +16,8 @@ type SubscriptionMetadata = {
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
   stripeSubscriptionStatus?: string;
+  stripePriceId?: string;
+  stripeCurrentPeriodEnd?: string;
 };
 
 type SubscriptionRow = {
@@ -26,6 +26,8 @@ type SubscriptionRow = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   stripe_subscription_status: string | null;
+  stripe_price_id: string | null;
+  stripe_current_period_end: string | null;
   updated_at?: string;
 };
 
@@ -62,6 +64,8 @@ export function toSubscriptionMetadata(args: {
   stripeCustomerId?: string | null;
   stripeSubscriptionId?: string | null;
   stripeSubscriptionStatus?: string | null;
+  stripePriceId?: string | null;
+  stripeCurrentPeriodEnd?: string | null;
 }): SubscriptionMetadata {
   const stripeSubscriptionStatus = args.stripeSubscriptionStatus ?? undefined;
 
@@ -70,6 +74,8 @@ export function toSubscriptionMetadata(args: {
     stripeCustomerId: args.stripeCustomerId ?? undefined,
     stripeSubscriptionId: args.stripeSubscriptionId ?? undefined,
     stripeSubscriptionStatus,
+    stripePriceId: args.stripePriceId ?? undefined,
+    stripeCurrentPeriodEnd: args.stripeCurrentPeriodEnd ?? undefined,
   };
 }
 
@@ -85,13 +91,17 @@ export async function upsertUserSubscription(
     stripe_customer_id: metadata.stripeCustomerId ?? null,
     stripe_subscription_id: metadata.stripeSubscriptionId ?? null,
     stripe_subscription_status: metadata.stripeSubscriptionStatus ?? null,
+    stripe_price_id: metadata.stripePriceId ?? null,
+    stripe_current_period_end: metadata.stripeCurrentPeriodEnd ?? null,
     updated_at: new Date().toISOString(),
   };
 
   const { data, error } = await supabase
     .from(subscriptionsTable)
     .upsert(row, { onConflict: "clerk_user_id" })
-    .select("clerk_user_id,plan,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,updated_at")
+    .select(
+      "clerk_user_id,plan,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,stripe_price_id,stripe_current_period_end,updated_at",
+    )
     .single();
 
   if (error) {
@@ -108,7 +118,7 @@ export async function getUserSubscription(userId: string): Promise<SubscriptionR
     const { data, error } = await supabase
       .from(subscriptionsTable)
       .select(
-        "clerk_user_id,plan,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,updated_at",
+        "clerk_user_id,plan,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,stripe_price_id,stripe_current_period_end,updated_at",
       )
       .eq("clerk_user_id", userId)
       .maybeSingle();

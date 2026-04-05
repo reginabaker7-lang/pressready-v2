@@ -43,6 +43,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
   - `https://<vercel-domain>/api/stripe/webhook`
 
 ### Required env vars
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_PRO_PRICE_ID`
 - `STRIPE_WEBHOOK_SECRET`
@@ -75,5 +76,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
   - `customer.subscription.created`
   - `customer.subscription.updated`
   - `customer.subscription.deleted`
+  - `invoice.paid`
+  - `invoice.payment_failed`
 - `STRIPE_WEBHOOK_SECRET` is set in Vercel for the correct environment(s).
 - Trigger a new deployment after env changes and verify latest commit SHA is active.
