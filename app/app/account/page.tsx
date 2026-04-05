@@ -22,6 +22,9 @@ export default async function AccountPage() {
     }
   }
 
+  const ctaLabel = plan === "pro" ? "Manage Subscription" : "Upgrade to Pro";
+  const ctaHref = plan === "pro" ? "/api/stripe/portal" : "/api/stripe/checkout";
+
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
       <h1 className="text-4xl font-bold">Account</h1>
@@ -44,10 +47,10 @@ export default async function AccountPage() {
               History
             </Link>
             <Link
-              className="inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-black transition hover:brightness-95"
-              href="/api/stripe/portal"
+              className="inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-[#0b0b0b] transition hover:brightness-95"
+              href={ctaHref}
             >
-              Manage Subscription
+              {ctaLabel || "Upgrade to Pro"}
             </Link>
             <SignOutButton />
           </div>
