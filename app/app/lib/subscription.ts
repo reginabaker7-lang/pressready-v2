@@ -34,6 +34,17 @@ function getSupabaseAdminClient() {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
 
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(supabaseUrl);
+  } catch {
+    throw new Error("Invalid NEXT_PUBLIC_SUPABASE_URL");
+  }
+
+  if (!/^https?:$/.test(parsedUrl.protocol)) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL must use http or https");
+  }
+
   return createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: { persistSession: false },
   });
@@ -92,9 +103,8 @@ export async function upsertUserSubscription(
 
 
 export async function getUserSubscription(userId: string): Promise<SubscriptionRow | null> {
-  const supabase = getSupabaseAdminClient();
-
   try {
+    const supabase = getSupabaseAdminClient();
     const { data, error } = await supabase
       .from(subscriptionsTable)
       .select(
@@ -111,7 +121,14 @@ export async function getUserSubscription(userId: string): Promise<SubscriptionR
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
 
-    if (message.includes("fetch failed")) {
+    const isNetworkOrConfigReadError =
+      message.includes("fetch failed") ||
+      message.includes("Failed to fetch") ||
+      message.includes("Invalid NEXT_PUBLIC_SUPABASE_URL") ||
+      message.includes("NEXT_PUBLIC_SUPABASE_URL must use http or https") ||
+      message.includes("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+
+    if (isNetworkOrConfigReadError) {
       console.warn("[subscription] read unavailable, defaulting to null", {
         table: subscriptionsTable,
         userId,
