@@ -63,6 +63,8 @@ function getCurrentPeriodEndIso(subscription: Stripe.Subscription): string | nul
   }
 
   return new Date(currentPeriodEnd * 1000).toISOString();
+}
+
 function getSubscriptionPriceId(subscription: Stripe.Subscription): string | null {
   const priceId = subscription.items.data[0]?.price?.id;
   return typeof priceId === "string" ? priceId : null;
@@ -294,6 +296,12 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const signature = req.headers.get("stripe-signature");
+  console.log("[stripe:webhook] request verification context", {
+    hasSignatureHeader: Boolean(signature),
+    hasWebhookSecret: Boolean(webhookSecret),
+  });
+
   if (!stripeSecretKey || !stripe) {
     console.error("[stripe:webhook] Missing STRIPE_SECRET_KEY");
     return NextResponse.json({ error: "Missing STRIPE_SECRET_KEY" }, { status: 500 });
@@ -303,8 +311,6 @@ export async function POST(req: Request) {
     console.error("[stripe:webhook] Missing STRIPE_WEBHOOK_SECRET");
     return NextResponse.json({ error: "Missing STRIPE_WEBHOOK_SECRET" }, { status: 500 });
   }
-
-  const signature = req.headers.get("stripe-signature");
 
   if (!signature) {
     console.error("[stripe:webhook] Missing Stripe signature header");
