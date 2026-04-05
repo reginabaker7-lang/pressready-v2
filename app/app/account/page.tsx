@@ -4,6 +4,8 @@ import { SignOutButton } from "./sign-out-button";
 import { getAuthFromServer } from "@/app/lib/clerk";
 import { getUserPlan, getUserSubscription } from "@/app/lib/subscription";
 
+import { SignOutControl } from "./sign-out-control";
+
 export default async function AccountPage() {
   const { userId } = await getAuthFromServer();
 
@@ -50,6 +52,10 @@ export default async function AccountPage() {
               Manage Subscription
             </Link>
             <SignOutButton />
+          </div>
+
+          <div className="pt-2">
+            <SignOutControl />
           </div>
         </div>
       ) : (
