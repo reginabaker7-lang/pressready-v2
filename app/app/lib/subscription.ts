@@ -90,19 +90,34 @@ export async function upsertUserSubscription(
 export async function getUserSubscription(userId: string): Promise<SubscriptionRow | null> {
   const supabase = getSupabaseAdminClient();
 
-  const { data, error } = await supabase
-    .from(subscriptionsTable)
-    .select(
-      "clerk_user_id,plan,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,updated_at",
-    )
-    .eq("clerk_user_id", userId)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from(subscriptionsTable)
+      .select(
+        "clerk_user_id,plan,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,updated_at",
+      )
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
 
-  if (error) {
-    throw new Error(`[subscription] failed to read ${subscriptionsTable}: ${error.message}`);
+    if (error) {
+      throw new Error(`[subscription] failed to read ${subscriptionsTable}: ${error.message}`);
+    }
+
+    return (data as SubscriptionRow | null) ?? null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+
+    if (message.includes("fetch failed")) {
+      console.warn("[subscription] read unavailable, defaulting to null", {
+        table: subscriptionsTable,
+        userId,
+        message,
+      });
+      return null;
+    }
+
+    throw error;
   }
-
-  return (data as SubscriptionRow | null) ?? null;
 }
 
 export async function getUserPlan(userId: string): Promise<PlanName> {
