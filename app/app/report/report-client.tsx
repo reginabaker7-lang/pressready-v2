@@ -78,15 +78,25 @@ export default function ReportClient() {
 
   if (!report) {
     return (
-      <div className="min-h-screen bg-[#0b0b0b] p-6 text-[#f5c400]">
-        <h1 className="mb-2 text-2xl font-bold">PressReady — DTF Readiness Report</h1>
-        <p className="mb-6 text-[#f5c400]/80">No saved report found yet. Run a check first.</p>
-        <Link
-          href="/check"
-          className="inline-flex rounded-xl bg-[#f5c400] px-4 py-2 font-semibold text-black transition hover:bg-[#e6b800] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5c400]"
-        >
-          Back to Check
-        </Link>
+      <div className="report-page min-h-screen bg-[#0b0b0b] p-4 text-[#f5c400] sm:p-6">
+        <div className="report-shell mx-auto flex w-full max-w-3xl flex-col gap-6 sm:gap-7">
+          <div className="report-page-card report-card rounded-2xl border border-[#5f4d10] bg-gradient-to-b from-[#0f0f0f] to-[#090909] p-6 text-center shadow-[0_0_0_1px_rgba(212,175,55,0.15)] sm:p-8">
+            <p className="mb-2 text-sm uppercase tracking-[0.18em] text-[#f8df6d]">PressReady</p>
+            <h1 className="mb-3 text-3xl font-extrabold text-[#f5c400]">DTF Readiness Report</h1>
+            <p className="mx-auto mb-6 max-w-xl text-sm text-[#f5c400]/85 sm:text-base">
+              No saved report yet. Run a Design Check to generate your first report.
+            </p>
+            <div className="flex justify-center">
+              <Link
+                href="/check"
+                className="inline-flex min-w-52 items-center justify-center rounded-xl border border-[#f0c71b] bg-[#f5c400] px-5 py-2.5 text-base font-bold text-[#0b0b0b] transition hover:bg-[#e6b800] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5c400]"
+                aria-label="Go to Design Check"
+              >
+                Go to Design Check
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
