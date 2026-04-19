@@ -108,7 +108,19 @@ export async function upsertUserSubscription(
     throw new Error(`[subscription] failed to upsert ${subscriptionsTable}: ${error.message}`);
   }
 
-  return data as SubscriptionRow;
+  const record = (data as SubscriptionRow | null) ?? null;
+
+  if (!record) {
+    // Defensive fallback: some PostgREST/Supabase configurations can write successfully
+    // but return no representation. Avoid surfacing a TypeError in webhook handlers.
+    console.warn("[subscription] upsert succeeded but returned no row representation", {
+      table: subscriptionsTable,
+      userId,
+    });
+    return row;
+  }
+
+  return record;
 }
 
 
