@@ -33,7 +33,6 @@ export default async function AccountPage() {
     }
   }
 
-  const ctaLabel = plan === "pro" ? "Manage Subscription" : "Upgrade to Pro";
   const ctaHref = plan === "pro" ? "/api/stripe/portal" : "/pricing";
 
   return (
@@ -62,10 +61,14 @@ export default async function AccountPage() {
               Pricing
             </Link>
             <Link
-              className="inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-[#0b0b0b] transition hover:brightness-95"
+              className={
+                plan === "pro"
+                  ? "inline-flex items-center justify-center rounded-lg border border-[#f5c400] bg-[#0b0b0b] px-4 py-2 font-semibold text-[#f5c400] transition hover:brightness-95"
+                  : "inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-black transition hover:brightness-95"
+              }
               href={ctaHref}
             >
-              {ctaLabel}
+              {plan === "pro" ? "Manage Subscription" : "Upgrade to Pro"}
             </Link>
             <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
               History
