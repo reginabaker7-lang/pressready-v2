@@ -28,6 +28,7 @@ export type StoredReportWithSummary = StoredReport & {
 type StoredReportHistory = {
   latestId: string | null;
   reports: StoredReport[];
+  freeCheckUsageCount: number;
 };
 
 export const REPORT_STORAGE_KEY = "pressready_report_v1";
@@ -116,34 +117,57 @@ export const readReportHistory = (storage: Storage): StoredReportHistory => {
   try {
     const raw = storage.getItem(REPORT_STORAGE_KEY);
     if (!raw) {
-      return { latestId: null, reports: [] };
+      return { latestId: null, reports: [], freeCheckUsageCount: 0 };
     }
 
     const parsed = JSON.parse(raw) as unknown;
 
     const singleReport = sanitizeReport(parsed);
     if (singleReport) {
-      return { latestId: singleReport.id, reports: [singleReport] };
+      return { latestId: singleReport.id, reports: [singleReport], freeCheckUsageCount: 1 };
     }
 
     if (!parsed || typeof parsed !== "object") {
-      return { latestId: null, reports: [] };
+      return { latestId: null, reports: [], freeCheckUsageCount: 0 };
     }
 
-    const payload = parsed as { latestId?: unknown; reports?: unknown };
+    const payload = parsed as { latestId?: unknown; reports?: unknown; freeCheckUsageCount?: unknown };
     const reports = Array.isArray(payload.reports)
       ? payload.reports.map((report) => sanitizeReport(report)).filter((report): report is StoredReport => Boolean(report))
       : [];
+    const freeCheckUsageCount =
+      typeof payload.freeCheckUsageCount === "number" && payload.freeCheckUsageCount >= 0
+        ? Math.floor(payload.freeCheckUsageCount)
+        : reports.length;
 
     const latestId =
       typeof payload.latestId === "string" && reports.some((report) => report.id === payload.latestId)
         ? payload.latestId
         : reports[0]?.id ?? null;
 
-    return { latestId, reports };
+    return { latestId, reports, freeCheckUsageCount };
   } catch {
-    return { latestId: null, reports: [] };
+    return { latestId: null, reports: [], freeCheckUsageCount: 0 };
   }
+};
+
+export const getFreeCheckUsageCount = (storage: Storage): number =>
+  readReportHistory(storage).freeCheckUsageCount;
+
+export const incrementFreeCheckUsageCount = (storage: Storage): number => {
+  const history = readReportHistory(storage);
+  const nextCount = history.freeCheckUsageCount + 1;
+
+  storage.setItem(
+    REPORT_STORAGE_KEY,
+    JSON.stringify({
+      latestId: history.latestId,
+      reports: history.reports,
+      freeCheckUsageCount: nextCount,
+    }),
+  );
+
+  return nextCount;
 };
 
 export const loadHistory = (storage: Storage): StoredReportWithSummary[] =>
@@ -208,6 +232,7 @@ export const saveReportToHistory = (storage: Storage, report: StoredReport): voi
       JSON.stringify({
         latestId: duplicateReport.id,
         reports: history.reports,
+        freeCheckUsageCount: history.freeCheckUsageCount,
       }),
     );
     return;
@@ -220,6 +245,7 @@ export const saveReportToHistory = (storage: Storage, report: StoredReport): voi
     JSON.stringify({
       latestId: normalizedReport.id,
       reports,
+      freeCheckUsageCount: history.freeCheckUsageCount,
     }),
   );
 };
@@ -234,6 +260,7 @@ export const deleteFromHistory = (storage: Storage, id: string): void => {
     JSON.stringify({
       latestId,
       reports,
+      freeCheckUsageCount: history.freeCheckUsageCount,
     }),
   );
 };
