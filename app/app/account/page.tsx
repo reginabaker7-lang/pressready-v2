@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { SignOutButton } from "./sign-out-button";
 import { CheckoutRefresh } from "./checkout-refresh";
+import { SubscriptionCta } from "./subscription-cta";
 import { getAuthFromServer } from "@/app/lib/clerk";
 import { getUserSubscription, isActiveSubscriptionStatus } from "@/app/lib/subscription";
 
@@ -33,8 +34,6 @@ export default async function AccountPage() {
     }
   }
 
-  const ctaLabel = plan === "pro" ? "Manage Subscription" : "Upgrade to Pro";
-  const ctaHref = plan === "pro" ? "/api/stripe/portal" : "/pricing";
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
@@ -61,12 +60,7 @@ export default async function AccountPage() {
             <Link className="border border-current px-4 py-2 rounded-lg" href="/pricing">
               Pricing
             </Link>
-            <Link
-              className="inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-[#0b0b0b] transition hover:brightness-95"
-              href={ctaHref}
-            >
-              {ctaLabel}
-            </Link>
+            <SubscriptionCta plan={plan} />
             <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
               History
             </Link>

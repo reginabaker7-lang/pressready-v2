@@ -13,16 +13,16 @@ const stripe = stripeSecretKey
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
+async function getPortalUrl(req: Request) {
   const { userId } = await auth();
 
   if (!userId) {
-    return NextResponse.redirect(new URL("/sign-in", req.url));
+    return { error: "unauthenticated" as const, url: new URL("/sign-in", req.url).toString() };
   }
 
   if (!stripeSecretKey || !stripe) {
     console.error("[stripe:portal] Missing STRIPE_SECRET_KEY");
-    return NextResponse.redirect(new URL("/account", req.url));
+    return { error: "missing_config" as const, url: new URL("/account", req.url).toString() };
   }
 
   try {
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
         userId,
         status: subscription?.stripe_subscription_status ?? "none",
       });
-      return NextResponse.redirect(new URL("/pricing", req.url));
+      return { error: "no_active_subscription" as const, url: new URL("/pricing", req.url).toString() };
     }
 
     const origin = new URL(req.url).origin;
@@ -44,10 +44,20 @@ export async function GET(req: Request) {
       return_url: `${origin}/account`,
     });
 
-    return NextResponse.redirect(session.url);
+    return { error: null, url: session.url };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to create portal session";
     console.error("[stripe:portal] failed", { userId, message });
-    return NextResponse.redirect(new URL("/account", req.url));
+    return { error: "portal_failed" as const, url: new URL("/account", req.url).toString() };
   }
+}
+
+export async function GET(req: Request) {
+  const result = await getPortalUrl(req);
+  return NextResponse.redirect(result.url);
+}
+
+export async function POST(req: Request) {
+  const result = await getPortalUrl(req);
+  return NextResponse.json({ url: result.url, error: result.error }, { status: result.error ? 400 : 200 });
 }
