@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { SignOutButton } from "./sign-out-button";
 import { CheckoutRefresh } from "./checkout-refresh";
+import { SubscriptionCta } from "./subscription-cta";
 import { getAuthFromServer } from "@/app/lib/clerk";
 import { getUserSubscription, isActiveSubscriptionStatus } from "@/app/lib/subscription";
 
