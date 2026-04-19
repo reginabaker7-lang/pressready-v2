@@ -124,7 +124,7 @@ export const readReportHistory = (storage: Storage): StoredReportHistory => {
 
     const singleReport = sanitizeReport(parsed);
     if (singleReport) {
-      return { latestId: singleReport.id, reports: [singleReport], freeCheckUsageCount: 1 };
+      return { latestId: singleReport.id, reports: [singleReport], freeCheckUsageCount: 0 };
     }
 
     if (!parsed || typeof parsed !== "object") {
