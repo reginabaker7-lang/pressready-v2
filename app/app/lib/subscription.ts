@@ -158,6 +158,10 @@ export async function getUserPlan(userId: string): Promise<PlanName> {
     return "free";
   }
 
+  if (data.plan === "pro") {
+    return "pro";
+  }
+
   return planFromStatus(data.stripe_subscription_status);
 }
 

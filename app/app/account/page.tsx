@@ -13,12 +13,20 @@ export default async function AccountPage() {
   let plan: "free" | "pro" = "free";
   let subscriptionStatus = "none";
   let subscriptionError: string | null = null;
+  let isSubscriptionMissing = false;
 
   if (userId) {
     try {
       const subscription = await getUserSubscription(userId);
-      plan = isActiveSubscriptionStatus(subscription?.stripe_subscription_status) ? "pro" : "free";
-      subscriptionStatus = subscription?.stripe_subscription_status ?? "none";
+      if (!subscription) {
+        isSubscriptionMissing = true;
+      } else {
+        plan =
+          subscription.plan === "pro" || isActiveSubscriptionStatus(subscription.stripe_subscription_status)
+            ? "pro"
+            : "free";
+        subscriptionStatus = subscription.stripe_subscription_status ?? "none";
+      }
     } catch (error) {
       subscriptionError = error instanceof Error ? error.message : "Failed to load subscription";
       console.error("[account] failed to load subscription", { userId, subscriptionError });
@@ -39,6 +47,12 @@ export default async function AccountPage() {
           <p className="text-sm opacity-80">User ID: {userId}</p>
           <p className="text-sm opacity-80">Plan: {plan === "pro" ? "Pro" : "Free"}</p>
           <p className="text-sm opacity-80">Subscription status: {subscriptionStatus}</p>
+          {isSubscriptionMissing ? (
+            <p className="text-sm opacity-80">
+              We could not find subscription data yet. If you just upgraded, please refresh in a few
+              seconds.
+            </p>
+          ) : null}
           {subscriptionError ? (
             <p className="text-sm text-red-600">Subscription error: {subscriptionError}</p>
           ) : null}
