@@ -274,7 +274,18 @@ async function processSubscriptionEvent(
       }),
       plan: forcedPlan,
     },
-  );
+  ).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : "Unknown upsert failure";
+    console.error("[stripe:webhook] subscription upsert failed", {
+      type: event.type,
+      userId,
+      subscriptionId: subscription.id,
+      customerId,
+      priceId,
+      message,
+    });
+    throw error;
+  });
 
   console.log("[stripe:webhook] subscription save/update success", {
     table: process.env.SUPABASE_SUBSCRIPTIONS_TABLE ?? "subscriptions",
