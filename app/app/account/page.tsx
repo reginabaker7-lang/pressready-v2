@@ -34,6 +34,7 @@ export default async function AccountPage() {
     }
   }
 
+  const ctaHref = plan === "pro" ? "/api/stripe/portal" : "/pricing";
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
@@ -60,7 +61,16 @@ export default async function AccountPage() {
             <Link className="border border-current px-4 py-2 rounded-lg" href="/pricing">
               Pricing
             </Link>
-            <SubscriptionCta plan={plan} />
+            <Link
+              className={
+                plan === "pro"
+                  ? "inline-flex items-center justify-center rounded-lg border border-[#f5c400] bg-[#0b0b0b] px-4 py-2 font-semibold text-[#f5c400] transition hover:brightness-95"
+                  : "inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-black transition hover:brightness-95"
+              }
+              href={ctaHref}
+            >
+              {plan === "pro" ? "Manage Subscription" : "Upgrade to Pro"}
+            </Link>
             <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
               History
             </Link>
