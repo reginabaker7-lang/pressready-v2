@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+
+import { clerkClient } from "@clerk/nextjs/server";
 
 import { SignOutButton } from "./sign-out-button";
 import { CheckoutRefresh } from "./checkout-refresh";
@@ -9,6 +12,19 @@ export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
   const { userId } = await getAuthFromServer();
+
+  async function signOutAction() {
+    "use server";
+
+    const { sessionId } = await getAuthFromServer();
+
+    if (sessionId) {
+      const client = await clerkClient();
+      await client.sessions.revokeSession(sessionId);
+    }
+
+    redirect("/sign-in");
+  }
 
   let plan: "free" | "pro" = "free";
   let subscriptionStatus = "none";
@@ -72,6 +88,15 @@ export default async function AccountPage() {
             </Link>
             <SignOutButton />
           </div>
+
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="mt-3 inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-black transition hover:brightness-95"
+            >
+              Sign out
+            </button>
+          </form>
         </div>
       ) : (
         <div className="mt-6 space-y-3">
