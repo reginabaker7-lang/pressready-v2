@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { SignOutButton } from "./sign-out-button";
 import { CheckoutRefresh } from "./checkout-refresh";
+import { SubscriptionCta } from "./subscription-cta";
 import { getAuthFromServer } from "@/app/lib/clerk";
 import { getUserSubscription, isActiveSubscriptionStatus } from "@/app/lib/subscription";
 
@@ -32,6 +33,8 @@ export default async function AccountPage() {
       console.error("[account] failed to load subscription", { userId, subscriptionError });
     }
   }
+
+  const ctaHref = plan === "pro" ? "/api/stripe/portal" : "/pricing";
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
