@@ -27,8 +27,6 @@ const statusClasses: Record<CheckStatus, string> = {
   Warning: "border-amber-400 text-amber-300",
   Error: "border-rose-400 text-rose-300",
 };
-const FREE_CHECK_LIMIT = 3;
-
 export default function DesignCheckPage() {
   const router = useRouter();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -89,7 +87,7 @@ export default function DesignCheckPage() {
   }, [previewUrl]);
 
   const isFreeLimitReached =
-    plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT;
+    plan !== "pro" && freeCheckUsageCount >= 3;
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
