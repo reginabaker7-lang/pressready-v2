@@ -218,9 +218,9 @@ export default function DesignCheckPage() {
       detailCard,
     ];
     setResults(nextResults);
-    saveReport(nextResults);
+    const savedReport = saveReport(nextResults);
 
-    if (plan !== "pro") {
+    if (plan !== "pro" && savedReport) {
       const nextCount = incrementFreeCheckUsageCount(localStorage);
       setFreeCheckUsageCount(nextCount);
     }
@@ -406,7 +406,7 @@ export default function DesignCheckPage() {
       {isFreeLimitReached && (
         <div className="space-y-3 rounded-lg border border-[#665716] bg-[#151515] p-4">
           <p className="text-sm text-[#f8df6d]">
-            You’ve reached your free limit. Upgrade to Pro for unlimited checks.
+            Free limit reached. Upgrade to Pro for unlimited checks.
           </p>
           <Link
             className="inline-flex rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"
