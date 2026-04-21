@@ -1,10 +1,22 @@
 import Link from "next/link";
-import PricingClient from "@/app/pricing/pricing-client";
-import UpgradeToProButton from "@/app/pricing/upgrade-to-pro-button";
+
 import { getAuthFromServer } from "@/app/lib/clerk";
+import PricingClient from "@/app/pricing/pricing-client";
+import { getUserPlan } from "@/app/lib/subscription";
 
 export default async function PricingPage() {
   const { userId } = await getAuthFromServer();
+
+  let plan: "free" | "pro" = "free";
+
+  if (userId) {
+    try {
+      plan = await getUserPlan(userId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load plan";
+      console.error("[pricing] failed to load plan", { userId, message });
+    }
+  }
 
   return (
     <section className="space-y-6">
@@ -13,11 +25,7 @@ export default async function PricingPage() {
         Choose the plan that fits your team and scale your design review workflow with confidence.
       </p>
 
-      <PricingClient isSignedIn={Boolean(userId)} />
-
-      <div className="pt-2">
-        <UpgradeToProButton isSignedIn={Boolean(userId)} />
-      </div>
+      <PricingClient currentPlan={plan} isSignedIn={Boolean(userId)} />
 
       <div className="flex flex-wrap gap-4 pt-2 text-sm font-semibold uppercase tracking-wider">
         <Link className="rounded border border-[var(--pressready-gold)] px-4 py-2" href="/">

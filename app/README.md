@@ -34,3 +34,49 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Stripe webhook + plan verification
+
+### Vercel project setup
+- **Root Directory** should be `app` (this folder contains `package.json`).
+- Webhook endpoint should be:
+  - `https://<vercel-domain>/api/stripe/webhook`
+
+### Required env vars
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_PRO_PRICE_ID`
+- `STRIPE_WEBHOOK_SECRET`
+
+### Local smoke checks
+1. Run the app:
+   ```bash
+   npm run dev
+   ```
+2. Confirm `/check` is routed:
+   ```bash
+   curl -i http://localhost:3000/check
+   ```
+   Expect `HTTP/1.1 200`.
+3. Confirm webhook route exists and is POST-only:
+   ```bash
+   curl -i http://localhost:3000/api/stripe/webhook
+   ```
+   Expect `HTTP/1.1 405 Method Not Allowed`.
+4. Confirm plan endpoint:
+   ```bash
+   curl -i http://localhost:3000/api/plan
+   ```
+
+### Production checklist
+- Stripe webhook endpoint in Dashboard is exactly:
+  - `https://<vercel-domain>/api/stripe/webhook`
+- Webhook events selected at minimum:
+  - `checkout.session.completed`
+  - `customer.subscription.created`
+  - `customer.subscription.updated`
+  - `customer.subscription.deleted`
+  - `invoice.paid`
+  - `invoice.payment_failed`
+- `STRIPE_WEBHOOK_SECRET` is set in Vercel for the correct environment(s).
+- Trigger a new deployment after env changes and verify latest commit SHA is active.

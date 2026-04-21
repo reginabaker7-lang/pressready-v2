@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
 import {
+  getFreeCheckUsageCount,
+  incrementFreeCheckUsageCount,
   saveReportToHistory,
   type StoredReport,
   type StoredShirtColor,
@@ -25,7 +27,6 @@ const statusClasses: Record<CheckStatus, string> = {
   Warning: "border-amber-400 text-amber-300",
   Error: "border-rose-400 text-rose-300",
 };
-
 export default function DesignCheckPage() {
   const router = useRouter();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -37,6 +38,14 @@ export default function DesignCheckPage() {
   const [whiteInk, setWhiteInk] = useState<boolean>(true);
   const [results, setResults] = useState<ResultCard[] | null>(null);
   const [copied, setCopied] = useState(false);
+  const [plan, setPlan] = useState<"free" | "pro">("free");
+  const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(() => {
+    if (typeof window === "undefined") {
+      return 0;
+    }
+
+    return getFreeCheckUsageCount(localStorage);
+  });
 
   const acceptedTypes = useMemo(
     () => ["image/png", "image/jpeg", "image/svg+xml"],
@@ -47,12 +56,38 @@ export default function DesignCheckPage() {
     name.split(".").pop()?.toLowerCase() ?? "";
 
   useEffect(() => {
+    const loadPlan = async () => {
+      try {
+        const response = await fetch("/api/plan", { cache: "no-store" });
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as { plan?: "free" | "pro" };
+        if (data.plan === "pro") {
+          setPlan("pro");
+          return;
+        }
+
+        setPlan("free");
+      } catch {
+        setPlan("free");
+      }
+    };
+
+    loadPlan();
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
     };
   }, [previewUrl]);
+
+  const isFreeLimitReached =
+    plan !== "pro" && freeCheckUsageCount >= 3;
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -92,7 +127,13 @@ export default function DesignCheckPage() {
   };
 
   const runChecks = () => {
-    if (!uploadedFile || !imageWidthPx || !imageHeightPx || printWidthIn <= 0) {
+    if (
+      !uploadedFile ||
+      !imageWidthPx ||
+      !imageHeightPx ||
+      printWidthIn <= 0 ||
+      isFreeLimitReached
+    ) {
       return;
     }
 
@@ -178,6 +219,11 @@ export default function DesignCheckPage() {
     ];
     setResults(nextResults);
     saveReport(nextResults);
+
+    if (plan !== "pro") {
+      const nextCount = incrementFreeCheckUsageCount(localStorage);
+      setFreeCheckUsageCount(nextCount);
+    }
   };
 
   const toStoredStatus = (status: CheckStatus): StoredStatus => {
@@ -261,7 +307,11 @@ export default function DesignCheckPage() {
   };
 
   const canRunChecks = Boolean(
-    uploadedFile && imageWidthPx && imageHeightPx && printWidthIn > 0,
+    uploadedFile &&
+      imageWidthPx &&
+      imageHeightPx &&
+      printWidthIn > 0 &&
+      !isFreeLimitReached,
   );
 
   return (
@@ -353,6 +403,19 @@ export default function DesignCheckPage() {
       >
         3) Run checks
       </button>
+      {isFreeLimitReached && (
+        <div className="space-y-3 rounded-lg border border-[#665716] bg-[#151515] p-4">
+          <p className="text-sm text-[#f8df6d]">
+            You’ve reached your free limit. Upgrade to Pro for unlimited checks.
+          </p>
+          <Link
+            className="inline-flex rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"
+            href="/pricing"
+          >
+            Upgrade to Pro
+          </Link>
+        </div>
+      )}
 
       {results && (
         <section className="space-y-4">
