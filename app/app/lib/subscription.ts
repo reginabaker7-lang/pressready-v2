@@ -1,4 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdminClient } from "@/app/lib/supabase";
+
 
 export type PlanName = "free" | "pro";
 
@@ -7,8 +8,6 @@ const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
   "trialing",
 ]);
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const subscriptionsTable = process.env.SUPABASE_SUBSCRIPTIONS_TABLE ?? "subscriptions";
 
 type SubscriptionMetadata = {
@@ -30,27 +29,6 @@ type SubscriptionRow = {
   stripe_current_period_end: string | null;
   updated_at?: string;
 };
-
-function getSupabaseAdminClient() {
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  }
-
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(supabaseUrl);
-  } catch {
-    throw new Error("Invalid NEXT_PUBLIC_SUPABASE_URL");
-  }
-
-  if (!/^https?:$/.test(parsedUrl.protocol)) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL must use http or https");
-  }
-
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false },
-  });
-}
 
 function planFromStatus(status: string | null | undefined): PlanName {
   return status && ACTIVE_SUBSCRIPTION_STATUSES.has(status) ? "pro" : "free";
@@ -146,9 +124,7 @@ export async function getUserSubscription(userId: string): Promise<SubscriptionR
     const isNetworkOrConfigReadError =
       message.includes("fetch failed") ||
       message.includes("Failed to fetch") ||
-      message.includes("Invalid NEXT_PUBLIC_SUPABASE_URL") ||
-      message.includes("NEXT_PUBLIC_SUPABASE_URL must use http or https") ||
-      message.includes("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+      message.includes("Missing SUPABASE_URL/NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
 
     if (isNetworkOrConfigReadError) {
       console.warn("[subscription] read unavailable, defaulting to null", {
