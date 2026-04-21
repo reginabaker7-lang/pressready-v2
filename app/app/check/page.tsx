@@ -38,6 +38,7 @@ export default function DesignCheckPage() {
   const [whiteInk, setWhiteInk] = useState<boolean>(true);
   const [results, setResults] = useState<ResultCard[] | null>(null);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [plan, setPlan] = useState<"free" | "pro">("free");
   const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(() => {
     if (typeof window === "undefined") {
@@ -92,6 +93,7 @@ export default function DesignCheckPage() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     setResults(null);
+    setError(null);
 
     if (!file) {
       setUploadedFile(null);
@@ -131,11 +133,17 @@ export default function DesignCheckPage() {
       !uploadedFile ||
       !imageWidthPx ||
       !imageHeightPx ||
-      printWidthIn <= 0 ||
-      isFreeLimitReached
+      printWidthIn <= 0
     ) {
       return;
     }
+
+    if (plan === "free" && freeCheckUsageCount >= 3) {
+      setError("Free limit reached. Upgrade to Pro for unlimited checks.");
+      return;
+    }
+
+    setError(null);
 
     const extension = getFileExtension(uploadedFile.name);
     const isJpg =
@@ -310,8 +318,7 @@ export default function DesignCheckPage() {
     uploadedFile &&
       imageWidthPx &&
       imageHeightPx &&
-      printWidthIn > 0 &&
-      !isFreeLimitReached,
+      printWidthIn > 0,
   );
 
   return (
@@ -415,6 +422,11 @@ export default function DesignCheckPage() {
             Upgrade to Pro
           </Link>
         </div>
+      )}
+      {error && (
+        <p className="text-sm text-rose-300" role="alert">
+          {error}
+        </p>
       )}
 
       {results && (
