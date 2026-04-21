@@ -41,6 +41,8 @@ export default function DesignCheckPage() {
   const [results, setResults] = useState<ResultCard[] | null>(null);
   const [copied, setCopied] = useState(false);
   const [plan, setPlan] = useState<"free" | "pro">("free");
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [limitMessage, setLimitMessage] = useState<string | null>(null);
   const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(() => {
     if (typeof window === "undefined") {
       return 0;
@@ -58,26 +60,31 @@ export default function DesignCheckPage() {
     name.split(".").pop()?.toLowerCase() ?? "";
 
   useEffect(() => {
-    const loadPlan = async () => {
+    const loadUsage = async () => {
       try {
-        const response = await fetch("/api/plan", { cache: "no-store" });
+        const response = await fetch("/api/checks", { cache: "no-store" });
         if (!response.ok) {
           return;
         }
 
-        const data = (await response.json()) as { plan?: "free" | "pro" };
-        if (data.plan === "pro") {
-          setPlan("pro");
-          return;
-        }
+        const data = (await response.json()) as {
+          plan?: "free" | "pro";
+          isSignedIn?: boolean;
+          usageCount?: number;
+        };
 
-        setPlan("free");
+        setPlan(data.plan === "pro" ? "pro" : "free");
+        setIsSignedIn(Boolean(data.isSignedIn));
+
+        if (typeof data.usageCount === "number" && data.usageCount >= 0) {
+          setFreeCheckUsageCount(data.usageCount);
+        }
       } catch {
         setPlan("free");
       }
     };
 
-    loadPlan();
+    loadUsage();
   }, []);
 
   useEffect(() => {
@@ -128,14 +135,41 @@ export default function DesignCheckPage() {
     setPreviewUrl(nextPreviewUrl);
   };
 
-  const runChecks = () => {
-    if (
-      !uploadedFile ||
-      !imageWidthPx ||
-      !imageHeightPx ||
-      printWidthIn <= 0 ||
-      isFreeLimitReached
-    ) {
+  const runChecks = async () => {
+    if (!uploadedFile || !imageWidthPx || !imageHeightPx || printWidthIn <= 0) {
+      return;
+    }
+
+    setLimitMessage(null);
+
+    if (isSignedIn && plan !== "pro") {
+      try {
+        const response = await fetch("/api/checks", { method: "POST" });
+        const data = (await response.json()) as {
+          allowed?: boolean;
+          message?: string;
+          usageCount?: number;
+        };
+
+        if (!response.ok || data.allowed === false) {
+          setLimitMessage(data.message ?? "Free limit reached. Upgrade to Pro for unlimited checks.");
+          if (typeof data.usageCount === "number") {
+            setFreeCheckUsageCount(data.usageCount);
+          }
+          return;
+        }
+
+        if (typeof data.usageCount === "number") {
+          setFreeCheckUsageCount(data.usageCount);
+        }
+      } catch {
+        setLimitMessage("Unable to validate free usage right now. Please try again.");
+        return;
+      }
+    }
+
+    if (!isSignedIn && isFreeLimitReached) {
+      setLimitMessage("Free limit reached. Upgrade to Pro for unlimited checks.");
       return;
     }
 
@@ -222,7 +256,7 @@ export default function DesignCheckPage() {
     setResults(nextResults);
     saveReport(nextResults);
 
-    if (plan !== "pro") {
+    if (!isSignedIn && plan !== "pro") {
       const nextCount = incrementFreeCheckUsageCount(localStorage);
       setFreeCheckUsageCount(nextCount);
     }
@@ -405,10 +439,10 @@ export default function DesignCheckPage() {
       >
         3) Run checks
       </button>
-      {isFreeLimitReached && (
+      {(isFreeLimitReached || limitMessage) && (
         <div className="space-y-3 rounded-lg border border-[#665716] bg-[#151515] p-4">
           <p className="text-sm text-[#f8df6d]">
-            You’ve reached your free limit. Upgrade to Pro for unlimited checks.
+            {limitMessage ?? "Free limit reached. Upgrade to Pro for unlimited checks."}
           </p>
           <Link
             className="inline-flex rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"

@@ -18,7 +18,7 @@ export function SubscriptionCta({ plan }: SubscriptionCtaProps) {
             window.location.href = data.url;
           }
         }}
-        className="rounded-xl border border-[#f5c400] bg-[#f5c400] px-5 py-3 font-semibold text-black"
+        className="inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-black transition hover:brightness-95"
       >
         Manage Subscription
       </button>
@@ -28,7 +28,7 @@ export function SubscriptionCta({ plan }: SubscriptionCtaProps) {
   return (
     <Link
       href="/pricing"
-      className="rounded-xl border border-[#f5c400] bg-[#f5c400] px-5 py-3 font-semibold text-black"
+      className="inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-black transition hover:brightness-95"
     >
       Upgrade to Pro
     </Link>

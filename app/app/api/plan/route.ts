@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-import { getUserPlan } from "@/app/lib/subscription";
+import { getUserPlan } from "@/app/lib/get-user-plan";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
