@@ -138,7 +138,7 @@ export const readReportHistory = (storage: Storage): StoredReportHistory => {
     const freeCheckUsageCount =
       typeof payload.freeCheckUsageCount === "number" && payload.freeCheckUsageCount >= 0
         ? Math.floor(payload.freeCheckUsageCount)
-        : reports.length;
+        : 0;
 
     const latestId =
       typeof payload.latestId === "string" && reports.some((report) => report.id === payload.latestId)
