@@ -59,7 +59,7 @@ export default async function AccountPage() {
               Pricing
             </Link>
             <a
-              className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-black transition hover:brightness-95 sm:w-auto sm:min-w-[12rem]"
+              className="rounded-xl bg-yellow-400 text-black font-bold px-6 py-3 border-2 border-yellow-400 hover:opacity-90 transition inline-flex items-center justify-center min-w-[220px]"
               href="/api/stripe/portal"
             >
               Manage Subscription
