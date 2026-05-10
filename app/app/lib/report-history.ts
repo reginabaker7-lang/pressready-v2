@@ -32,6 +32,7 @@ type StoredReportHistory = {
 };
 
 export const REPORT_STORAGE_KEY = "pressready_report_v1";
+const LEGACY_FREE_CHECKS_STORAGE_KEY = "pressready_free_checks";
 const GENERATED_AT_DEDUPE_WINDOW_MS = 60_000;
 
 const isStoredStatus = (value: unknown): value is StoredStatus =>
@@ -115,6 +116,8 @@ const buildSummaryText = (report: StoredReport): string =>
 
 export const readReportHistory = (storage: Storage): StoredReportHistory => {
   try {
+    storage.removeItem(LEGACY_FREE_CHECKS_STORAGE_KEY);
+
     const raw = storage.getItem(REPORT_STORAGE_KEY);
     if (!raw) {
       return { latestId: null, reports: [], freeCheckUsageCount: 0 };
