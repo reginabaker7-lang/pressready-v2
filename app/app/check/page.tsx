@@ -6,7 +6,6 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
 import {
   getFreeCheckUsageCount,
-  incrementFreeCheckUsageCount,
   saveReportToHistory,
   type StoredReport,
   type StoredShirtColor,
@@ -38,6 +37,7 @@ export default function DesignCheckPage() {
   const [whiteInk, setWhiteInk] = useState<boolean>(true);
   const [results, setResults] = useState<ResultCard[] | null>(null);
   const [copied, setCopied] = useState(false);
+  const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [plan, setPlan] = useState<"free" | "pro">("free");
   const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(() => {
     if (typeof window === "undefined") {
@@ -92,6 +92,7 @@ export default function DesignCheckPage() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     setResults(null);
+    setCheckMessage(null);
 
     if (!file) {
       setUploadedFile(null);
@@ -127,6 +128,8 @@ export default function DesignCheckPage() {
   };
 
   const runChecks = async () => {
+    setCheckMessage(null);
+
     if (
       !uploadedFile ||
       !imageWidthPx ||
@@ -135,39 +138,6 @@ export default function DesignCheckPage() {
       isFreeLimitReached
     ) {
       return;
-    }
-
-    if (plan !== "pro") {
-      try {
-        const response = await fetch("/api/checks/consume", {
-          method: "POST",
-          cache: "no-store",
-        });
-
-        const payload = (await response.json()) as {
-          allowed?: boolean;
-          count?: number;
-          message?: string;
-          fallbackUsed?: boolean;
-        };
-
-        if (!response.ok || payload.allowed === false) {
-          alert(payload.message ?? "Free limit reached. Upgrade to Pro for unlimited checks.");
-          return;
-        }
-
-        if (typeof payload.count === "number" && !payload.fallbackUsed) {
-          setFreeCheckUsageCount(payload.count);
-        }
-      } catch {
-        if (freeCheckUsageCount >= 3) {
-          alert("Free limit reached. Upgrade to Pro for unlimited checks.");
-          return;
-        }
-
-        const nextCount = incrementFreeCheckUsageCount(localStorage);
-        setFreeCheckUsageCount(nextCount);
-      }
     }
 
     const extension = getFileExtension(uploadedFile.name);
@@ -250,9 +220,44 @@ export default function DesignCheckPage() {
       whiteInkCard,
       detailCard,
     ];
+
+    if (plan !== "pro") {
+      try {
+        const response = await fetch("/api/checks/consume", {
+          method: "POST",
+          cache: "no-store",
+        });
+
+        const payload = (await response.json()) as {
+          allowed?: boolean;
+          count?: number;
+          message?: string;
+        };
+
+        if (response.status === 401) {
+          setCheckMessage("Please sign in to run your design check.");
+          router.push('/sign-in');
+          return;
+        }
+
+        if (!response.ok || payload.allowed === false) {
+          setCheckMessage(
+            payload.message ?? "Free limit reached. Upgrade to Pro for unlimited checks.",
+          );
+          return;
+        }
+
+        if (typeof payload.count === "number") {
+          setFreeCheckUsageCount(payload.count);
+        }
+      } catch {
+        setCheckMessage("Unable to run your check right now. Please try again.");
+        return;
+      }
+    }
+
     setResults(nextResults);
     saveReport(nextResults);
-
   };
 
   const toStoredStatus = (status: CheckStatus): StoredStatus => {
@@ -432,6 +437,9 @@ export default function DesignCheckPage() {
       >
         3) Run checks
       </button>
+      {checkMessage && (
+        <p className="text-sm text-[#f8df6d]">{checkMessage}</p>
+      )}
       {isFreeLimitReached && (
         <div className="space-y-3 rounded-lg border border-[#665716] bg-[#151515] p-4">
           <p className="text-sm text-[#f8df6d]">
