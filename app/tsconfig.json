@@ -25,11 +25,9 @@
     "paths": {
       "@/*": [
         "./*"
-      ],
-      "@clerk/nextjs": [
-        "./clerk-nextjs"
       ]
-    }
+    },
+    "baseUrl": "."
   },
   "include": [
     "next-env.d.ts",
