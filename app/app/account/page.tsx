@@ -2,7 +2,6 @@ import Link from "next/link";
 
 import { SignOutButton } from "./sign-out-button";
 import { CheckoutRefresh } from "./checkout-refresh";
-import { SubscriptionCta } from "./subscription-cta";
 import { getAuthFromServer } from "@/app/lib/clerk";
 import { getUserSubscription, isActiveSubscriptionStatus } from "@/app/lib/subscription";
 
@@ -34,8 +33,6 @@ export default async function AccountPage() {
     }
   }
 
-  const ctaHref = plan === "pro" ? "/api/stripe/portal" : "/pricing";
-
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
       <h1 className="text-4xl font-bold">Account</h1>
@@ -57,25 +54,16 @@ export default async function AccountPage() {
             <p className="text-sm text-red-600">Subscription error: {subscriptionError}</p>
           ) : null}
 
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 flex flex-wrap gap-3">
             <Link className="border border-current px-4 py-2 rounded-lg" href="/pricing">
               Pricing
             </Link>
-            {plan === "pro" ? (
-              <a
-                className="inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-black transition hover:brightness-95"
-                href="/api/stripe/portal"
-              >
-                Manage Subscription
-              </a>
-            ) : (
-              <Link
-                className="inline-flex items-center justify-center rounded-lg border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-black transition hover:brightness-95"
-                href="/pricing"
-              >
-                Upgrade to Pro
-              </Link>
-            )}
+            <a
+              className="rounded-xl bg-yellow-400 text-black font-bold px-6 py-3 border-2 border-yellow-400 hover:opacity-90 transition inline-flex items-center justify-center min-w-[220px]"
+              href="/api/stripe/portal"
+            >
+              Manage Subscription
+            </a>
             <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
               History
             </Link>
