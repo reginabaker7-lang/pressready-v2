@@ -240,7 +240,7 @@ export default function DesignCheckPage() {
 
         if (!response.ok || payload.allowed === false) {
           setCheckMessage(
-            payload.message ?? "Free limit reached. Upgrade to Pro for unlimited checks.",
+            payload.message ?? "You’ve used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.",
           );
           return;
         }
@@ -441,7 +441,7 @@ export default function DesignCheckPage() {
       {isFreeLimitReached && (
         <div className="space-y-3 rounded-lg border border-[#665716] bg-[#151515] p-4">
           <p className="text-sm text-[#f8df6d]">
-            You’ve reached your free limit. Upgrade to Pro for unlimited checks.
+            You’ve used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.
           </p>
           <Link
             className="inline-flex rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"
