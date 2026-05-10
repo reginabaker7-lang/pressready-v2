@@ -31,6 +31,13 @@ type SubscriptionRow = {
   updated_at?: string;
 };
 
+type ChecksRow = {
+  clerk_user_id: string;
+  count: number;
+};
+
+const checksTable = process.env.SUPABASE_CHECKS_TABLE ?? "checks";
+
 function getSupabaseAdminClient() {
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
@@ -195,4 +202,52 @@ export async function findUserIdByStripeCustomerId(
   }
 
   return data?.clerk_user_id ?? null;
+}
+
+export async function consumeFreeCheck(userId: string): Promise<{
+  allowed: boolean;
+  count: number;
+  fallbackUsed: boolean;
+}> {
+  try {
+    const supabase = getSupabaseAdminClient();
+
+    const { data, error } = await supabase
+      .from(checksTable)
+      .select("clerk_user_id,count")
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`[checks] failed to read ${checksTable}: ${error.message}`);
+    }
+
+    const currentCount = Math.max(0, (data as ChecksRow | null)?.count ?? 0);
+
+    if (currentCount >= 3) {
+      return { allowed: false, count: currentCount, fallbackUsed: false };
+    }
+
+    const nextCount = currentCount + 1;
+
+    const { error: upsertError } = await supabase
+      .from(checksTable)
+      .upsert({ clerk_user_id: userId, count: nextCount }, { onConflict: "clerk_user_id" });
+
+    if (upsertError) {
+      throw new Error(`[checks] failed to upsert ${checksTable}: ${upsertError.message}`);
+    }
+
+    return { allowed: true, count: nextCount, fallbackUsed: false };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+
+    console.warn("[checks] consume unavailable, using fallback", {
+      table: checksTable,
+      userId,
+      message,
+    });
+
+    return { allowed: true, count: 0, fallbackUsed: true };
+  }
 }

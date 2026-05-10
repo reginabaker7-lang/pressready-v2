@@ -126,7 +126,7 @@ export default function DesignCheckPage() {
     setPreviewUrl(nextPreviewUrl);
   };
 
-  const runChecks = () => {
+  const runChecks = async () => {
     if (
       !uploadedFile ||
       !imageWidthPx ||
@@ -135,6 +135,39 @@ export default function DesignCheckPage() {
       isFreeLimitReached
     ) {
       return;
+    }
+
+    if (plan !== "pro") {
+      try {
+        const response = await fetch("/api/checks/consume", {
+          method: "POST",
+          cache: "no-store",
+        });
+
+        const payload = (await response.json()) as {
+          allowed?: boolean;
+          count?: number;
+          message?: string;
+          fallbackUsed?: boolean;
+        };
+
+        if (!response.ok || payload.allowed === false) {
+          alert(payload.message ?? "Free limit reached. Upgrade to Pro for unlimited checks.");
+          return;
+        }
+
+        if (typeof payload.count === "number" && !payload.fallbackUsed) {
+          setFreeCheckUsageCount(payload.count);
+        }
+      } catch {
+        if (freeCheckUsageCount >= 3) {
+          alert("Free limit reached. Upgrade to Pro for unlimited checks.");
+          return;
+        }
+
+        const nextCount = incrementFreeCheckUsageCount(localStorage);
+        setFreeCheckUsageCount(nextCount);
+      }
     }
 
     const extension = getFileExtension(uploadedFile.name);
@@ -220,10 +253,6 @@ export default function DesignCheckPage() {
     setResults(nextResults);
     saveReport(nextResults);
 
-    if (plan !== "pro") {
-      const nextCount = incrementFreeCheckUsageCount(localStorage);
-      setFreeCheckUsageCount(nextCount);
-    }
   };
 
   const toStoredStatus = (status: CheckStatus): StoredStatus => {
