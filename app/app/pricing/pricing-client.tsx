@@ -9,7 +9,19 @@ type PricingClientProps = {
   currentPlan: PlanName;
 };
 
-const proFeatures = ["Unlimited checks", "PDF export", "History", "Priority improvements"];
+const freeFeatures = [
+  "3 free DTF design checks",
+  "Basic readiness feedback",
+  "Good for trying PressReady",
+];
+
+const proFeatures = [
+  "Unlimited DTF design checks",
+  "Saved reports and history",
+  "Copy-ready summary/report access",
+  "Manage billing from your account page",
+  "Best for sellers, DTF shops, and repeat orders",
+];
 
 export default function PricingClient({ isSignedIn, currentPlan }: PricingClientProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -62,7 +74,17 @@ export default function PricingClient({ isSignedIn, currentPlan }: PricingClient
             </span>
           ) : null}
         </div>
-        <p className="mt-3 text-sm opacity-90">Great for trying PressReady with basic checks and workflows.</p>
+        <p className="mt-3 text-sm opacity-90">Try PressReady with essential DTF readiness feedback.</p>
+
+        <ul className="mt-6 space-y-2 text-sm">
+          {freeFeatures.map((feature) => (
+            <li key={feature} className="flex items-center gap-2">
+              <span className="text-[var(--pressready-gold)]">•</span>
+              <span>{feature}</span>
+            </li>
+          ))}
+        </ul>
+
         <p className="mt-8 text-3xl font-extrabold">$0</p>
         <p className="text-xs uppercase tracking-wider opacity-70">Forever</p>
       </article>
@@ -76,7 +98,7 @@ export default function PricingClient({ isSignedIn, currentPlan }: PricingClient
             </span>
           ) : null}
         </div>
-        <p className="mt-3 text-sm opacity-90">For teams that need faster, deeper design quality checks.</p>
+        <p className="mt-3 text-sm opacity-90">Built for production-ready DTF workflows and repeat orders.</p>
 
         <ul className="mt-6 space-y-2 text-sm">
           {proFeatures.map((feature) => (

@@ -31,7 +31,7 @@ export async function POST() {
           allowed: false,
           plan: "free",
           count: result.count,
-          message: "Free limit reached. Upgrade to Pro for unlimited checks.",
+          message: "You've used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.",
         },
         { status: 403 },
       );
