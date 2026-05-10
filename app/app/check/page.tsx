@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
 import {
-  getFreeCheckUsageCount,
   saveReportToHistory,
   type StoredReport,
   type StoredShirtColor,
   type StoredStatus,
 } from "@/app/lib/report-history";
+import { FREE_CHECK_LIMIT } from "@/app/lib/free-check-limit";
 
 type ShirtColor = "Light" | "Dark";
 type CheckStatus = "Pass" | "Warning" | "Error";
@@ -39,13 +39,7 @@ export default function DesignCheckPage() {
   const [copied, setCopied] = useState(false);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [plan, setPlan] = useState<"free" | "pro">("free");
-  const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(() => {
-    if (typeof window === "undefined") {
-      return 0;
-    }
-
-    return getFreeCheckUsageCount(localStorage);
-  });
+  const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(0);
 
   const acceptedTypes = useMemo(
     () => ["image/png", "image/jpeg", "image/svg+xml"],
@@ -87,7 +81,7 @@ export default function DesignCheckPage() {
   }, [previewUrl]);
 
   const isFreeLimitReached =
-    plan !== "pro" && freeCheckUsageCount >= 3;
+    plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT;
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -130,12 +124,16 @@ export default function DesignCheckPage() {
   const runChecks = async () => {
     setCheckMessage(null);
 
+    console.log("check count before run", freeCheckUsageCount);
+    console.log("free limit", FREE_CHECK_LIMIT);
+    console.log("allowed?", freeCheckUsageCount < FREE_CHECK_LIMIT);
+
     if (
       !uploadedFile ||
       !imageWidthPx ||
       !imageHeightPx ||
       printWidthIn <= 0 ||
-      isFreeLimitReached
+      (plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT)
     ) {
       return;
     }

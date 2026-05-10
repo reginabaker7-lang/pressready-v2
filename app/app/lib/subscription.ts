@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { FREE_CHECK_LIMIT } from "@/app/lib/free-check-limit";
 
 export type PlanName = "free" | "pro";
 
@@ -224,7 +225,7 @@ export async function consumeFreeCheck(userId: string): Promise<{
 
     const currentCount = Math.max(0, (data as ChecksRow | null)?.count ?? 0);
 
-    if (currentCount >= 3) {
+    if (currentCount >= FREE_CHECK_LIMIT) {
       return { allowed: false, count: currentCount, fallbackUsed: false };
     }
 
