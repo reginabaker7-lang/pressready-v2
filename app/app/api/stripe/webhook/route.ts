@@ -47,24 +47,6 @@ function getClerkUserIdFromMetadata(metadata: Stripe.Metadata | null | undefined
   return fromSnake;
 }
 
-function getPriceId(subscription: Stripe.Subscription): string | null {
-  const [firstItem] = subscription.items.data;
-  return firstItem?.price?.id ?? null;
-}
-
-function getCurrentPeriodEndIso(subscription: Stripe.Subscription): string | null {
-  const currentPeriodEnd =
-    typeof (subscription as { current_period_end?: unknown }).current_period_end === "number"
-      ? (subscription as unknown as { current_period_end: number }).current_period_end
-      : null;
-
-  if (!currentPeriodEnd) {
-    return null;
-  }
-
-  return new Date(currentPeriodEnd * 1000).toISOString();
-}
-
 function getSubscriptionPriceId(subscription: Stripe.Subscription): string | null {
   const priceId = subscription.items.data[0]?.price?.id;
   return typeof priceId === "string" ? priceId : null;

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
@@ -374,10 +375,13 @@ export default function DesignCheckPage() {
           />
           {previewUrl && (
             <div className="space-y-3">
-              <img
+              <Image
                 alt="Uploaded design preview"
                 className="h-44 w-44 rounded border border-[#665716] object-contain"
+                height={176}
                 src={previewUrl}
+                unoptimized
+                width={176}
               />
               <p className="text-sm text-[#f8df6d]">
                 Size: {imageWidthPx ?? "-"} x {imageHeightPx ?? "-"} px
