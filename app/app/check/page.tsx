@@ -1,5 +1,6 @@
 "use client";
 
+import NextImage from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
@@ -106,7 +107,7 @@ export default function DesignCheckPage() {
     }
 
     const nextPreviewUrl = URL.createObjectURL(file);
-    const image = new Image();
+    const image = new window.Image();
     image.onload = () => {
       setImageWidthPx(image.naturalWidth);
       setImageHeightPx(image.naturalHeight);
@@ -374,10 +375,13 @@ export default function DesignCheckPage() {
           />
           {previewUrl && (
             <div className="space-y-3">
-              <img
+              <NextImage
                 alt="Uploaded design preview"
                 className="h-44 w-44 rounded border border-[#665716] object-contain"
+                height={176}
                 src={previewUrl}
+                unoptimized
+                width={176}
               />
               <p className="text-sm text-[#f8df6d]">
                 Size: {imageWidthPx ?? "-"} x {imageHeightPx ?? "-"} px
