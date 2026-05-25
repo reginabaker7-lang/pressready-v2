@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import NextImage from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
@@ -375,7 +375,7 @@ export default function DesignCheckPage() {
           />
           {previewUrl && (
             <div className="space-y-3">
-              <Image
+              <NextImage
                 alt="Uploaded design preview"
                 className="h-44 w-44 rounded border border-[#665716] object-contain"
                 height={176}
