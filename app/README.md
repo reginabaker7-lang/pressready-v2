@@ -14,7 +14,7 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open the URL printed by `npm run dev` (for example, `http://127.0.0.1:<port>`) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
@@ -53,19 +53,23 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
    ```bash
    npm run dev
    ```
-2. Confirm `/check` is routed:
+2. Set the base URL in a separate shell:
    ```bash
-   curl -i http://localhost:3000/check
+   export APP_BASE_URL="http://127.0.0.1:<port>"
+   ```
+3. Confirm `/check` is routed:
+   ```bash
+   curl -i "$APP_BASE_URL/check"
    ```
    Expect `HTTP/1.1 200`.
-3. Confirm webhook route exists and is POST-only:
+4. Confirm webhook route exists and is POST-only:
    ```bash
-   curl -i http://localhost:3000/api/stripe/webhook
+   curl -i "$APP_BASE_URL/api/stripe/webhook"
    ```
    Expect `HTTP/1.1 405 Method Not Allowed`.
-4. Confirm plan endpoint:
+5. Confirm plan endpoint:
    ```bash
-   curl -i http://localhost:3000/api/plan
+   curl -i "$APP_BASE_URL/api/plan"
    ```
 
 ### Production checklist
