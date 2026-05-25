@@ -107,7 +107,7 @@ export default function DesignCheckPage() {
     }
 
     const nextPreviewUrl = URL.createObjectURL(file);
-    const image = new Image();
+    const image = new window.Image();
     image.onload = () => {
       setImageWidthPx(image.naturalWidth);
       setImageHeightPx(image.naturalHeight);
