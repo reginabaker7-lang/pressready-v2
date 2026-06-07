@@ -41,6 +41,7 @@ export default function DesignCheckPage() {
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [plan, setPlan] = useState<"free" | "pro">("free");
   const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(0);
+  const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
 
   const acceptedTypes = useMemo(
     () => ["image/png", "image/jpeg", "image/svg+xml"],
@@ -58,13 +59,16 @@ export default function DesignCheckPage() {
           return;
         }
 
-        const data = (await response.json()) as { plan?: "free" | "pro" };
-        if (data.plan === "pro") {
-          setPlan("pro");
-          return;
-        }
+        const data = (await response.json()) as {
+          plan?: "free" | "pro";
+          reportsUsed?: number;
+        };
 
-        setPlan("free");
+        setPlan(data.plan === "pro" ? "pro" : "free");
+
+        if (typeof data.reportsUsed === "number") {
+          setFreeCheckUsageCount(data.reportsUsed);
+        }
       } catch {
         setPlan("free");
       }
@@ -125,17 +129,65 @@ export default function DesignCheckPage() {
   const runChecks = async () => {
     setCheckMessage(null);
 
-    console.log("check count before run", freeCheckUsageCount);
-    console.log("free limit", FREE_CHECK_LIMIT);
-    console.log("allowed?", freeCheckUsageCount < FREE_CHECK_LIMIT);
-
     if (
       !uploadedFile ||
       !imageWidthPx ||
       !imageHeightPx ||
-      printWidthIn <= 0 ||
-      (plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT)
+      printWidthIn <= 0
     ) {
+      return;
+    }
+
+    if (isFreeLimitReached) {
+      setCheckMessage("You have used all 3 free checks. Upgrade to Pro to continue.");
+      setIsLimitModalOpen(true);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/checks/consume", {
+        method: "POST",
+        cache: "no-store",
+      });
+
+      const payload = (await response.json()) as {
+        allowed?: boolean;
+        count?: number;
+        message?: string;
+        plan?: "free" | "pro";
+        reportsUsed?: number;
+      };
+
+      if (response.status === 401) {
+        setCheckMessage("Please sign in to run your design check.");
+        router.push("/sign-in");
+        return;
+      }
+
+      if (payload.plan === "pro") {
+        setPlan("pro");
+      } else if (payload.plan === "free") {
+        setPlan("free");
+      }
+
+      if (typeof payload.reportsUsed === "number") {
+        setFreeCheckUsageCount(payload.reportsUsed);
+      } else if (typeof payload.count === "number") {
+        setFreeCheckUsageCount(payload.count);
+      }
+
+      if (!response.ok || payload.allowed === false) {
+        if (response.status === 403) {
+          setIsLimitModalOpen(true);
+        }
+
+        setCheckMessage(
+          payload.message ?? "You have used all 3 free checks. Upgrade to Pro to continue.",
+        );
+        return;
+      }
+    } catch {
+      setCheckMessage("Unable to run your check right now. Please try again.");
       return;
     }
 
@@ -219,41 +271,6 @@ export default function DesignCheckPage() {
       whiteInkCard,
       detailCard,
     ];
-
-    if (plan !== "pro") {
-      try {
-        const response = await fetch("/api/checks/consume", {
-          method: "POST",
-          cache: "no-store",
-        });
-
-        const payload = (await response.json()) as {
-          allowed?: boolean;
-          count?: number;
-          message?: string;
-        };
-
-        if (response.status === 401) {
-          setCheckMessage("Please sign in to run your design check.");
-          router.push('/sign-in');
-          return;
-        }
-
-        if (!response.ok || payload.allowed === false) {
-          setCheckMessage(
-            payload.message ?? "You’ve used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.",
-          );
-          return;
-        }
-
-        if (typeof payload.count === "number") {
-          setFreeCheckUsageCount(payload.count);
-        }
-      } catch {
-        setCheckMessage("Unable to run your check right now. Please try again.");
-        return;
-      }
-    }
 
     setResults(nextResults);
     saveReport(nextResults);
@@ -343,8 +360,7 @@ export default function DesignCheckPage() {
     uploadedFile &&
       imageWidthPx &&
       imageHeightPx &&
-      printWidthIn > 0 &&
-      !isFreeLimitReached,
+      printWidthIn > 0,
   );
 
   return (
@@ -431,28 +447,54 @@ export default function DesignCheckPage() {
         </div>
       </div>
 
-      <button
-        className="rounded border border-[#f5c400] px-5 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={!canRunChecks}
-        onClick={runChecks}
-        type="button"
-      >
-        3) Run checks
-      </button>
+      <div className="space-y-2">
+        <button
+          className="rounded border border-[#f5c400] px-5 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!canRunChecks}
+          onClick={runChecks}
+          type="button"
+        >
+          3) Run checks
+        </button>
+        {plan !== "pro" ? (
+          <p className="text-sm text-[#f8df6d]">
+            Reports used: {Math.min(freeCheckUsageCount, FREE_CHECK_LIMIT)}/{FREE_CHECK_LIMIT}
+          </p>
+        ) : (
+          <p className="text-sm text-[#f8df6d]">Pro plan: unlimited reports.</p>
+        )}
+      </div>
       {checkMessage && (
         <p className="text-sm text-[#f8df6d]">{checkMessage}</p>
       )}
-      {isFreeLimitReached && (
-        <div className="space-y-3 rounded-lg border border-[#665716] bg-[#151515] p-4">
-          <p className="text-sm text-[#f8df6d]">
-            You’ve used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.
-          </p>
-          <Link
-            className="inline-flex rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"
-            href="/pricing"
-          >
-            Upgrade to Pro
-          </Link>
+
+      {isLimitModalOpen && (
+        <div
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+          role="dialog"
+        >
+          <div className="w-full max-w-md space-y-5 rounded-xl border border-[#f5c400] bg-[#151515] p-6 text-[#f5c400] shadow-2xl">
+            <h2 className="text-2xl font-bold">Free checks used</h2>
+            <p className="text-sm text-[#f8df6d]">
+              You have used all 3 free checks. Upgrade to Pro to continue.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                className="rounded border border-[#f5c400] bg-[#f5c400] px-4 py-2 text-sm font-semibold text-black hover:brightness-95"
+                href="/pricing"
+              >
+                Upgrade to Pro
+              </Link>
+              <button
+                className="rounded border border-[#665716] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"
+                onClick={() => setIsLimitModalOpen(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
