@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
 import {
+  readReportHistory,
   saveReportToHistory,
   type StoredReport,
   type StoredShirtColor,
@@ -27,6 +28,9 @@ const statusClasses: Record<CheckStatus, string> = {
   Warning: "border-amber-400 text-amber-300",
   Error: "border-rose-400 text-rose-300",
 };
+
+const FREE_LIMIT_MESSAGE =
+  "You have used all 3 free checks. Upgrade to Pro to continue.";
 export default function DesignCheckPage() {
   const router = useRouter();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -41,6 +45,8 @@ export default function DesignCheckPage() {
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [plan, setPlan] = useState<"free" | "pro">("free");
   const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(0);
+  const [showFreeLimitModal, setShowFreeLimitModal] = useState(false);
+  const [isSavingReport, setIsSavingReport] = useState(false);
 
   const acceptedTypes = useMemo(
     () => ["image/png", "image/jpeg", "image/svg+xml"],
@@ -51,26 +57,33 @@ export default function DesignCheckPage() {
     name.split(".").pop()?.toLowerCase() ?? "";
 
   useEffect(() => {
-    const loadPlan = async () => {
+    const loadReportLimit = async () => {
       try {
-        const response = await fetch("/api/plan", { cache: "no-store" });
+        const response = await fetch("/api/reports/limit", {
+          cache: "no-store",
+        });
         if (!response.ok) {
           return;
         }
 
-        const data = (await response.json()) as { plan?: "free" | "pro" };
-        if (data.plan === "pro") {
-          setPlan("pro");
-          return;
-        }
+        const data = (await response.json()) as {
+          plan?: "free" | "pro";
+          count?: number;
+        };
 
-        setPlan("free");
+        setPlan(data.plan === "pro" ? "pro" : "free");
+
+        if (typeof data.count === "number") {
+          const localReportCount =
+            readReportHistory(localStorage).reports.length;
+          setFreeCheckUsageCount(Math.max(data.count, localReportCount));
+        }
       } catch {
         setPlan("free");
       }
     };
 
-    loadPlan();
+    loadReportLimit();
   }, []);
 
   useEffect(() => {
@@ -83,6 +96,52 @@ export default function DesignCheckPage() {
 
   const isFreeLimitReached =
     plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT;
+
+  const verifyReportLimitBeforeAnalysis = async (): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/reports/limit", { cache: "no-store" });
+      const payload = (await response.json()) as {
+        allowed?: boolean;
+        count?: number;
+        message?: string;
+        plan?: "free" | "pro";
+      };
+
+      if (response.status === 401) {
+        setCheckMessage("Please sign in to run your design check.");
+        router.push("/sign-in");
+        return false;
+      }
+
+      if (!response.ok) {
+        setCheckMessage(
+          payload.message ??
+            "Unable to verify your free checks right now. Please try again.",
+        );
+        return false;
+      }
+
+      setPlan(payload.plan === "pro" ? "pro" : "free");
+
+      if (typeof payload.count === "number") {
+        const localReportCount = readReportHistory(localStorage).reports.length;
+        setFreeCheckUsageCount(Math.max(payload.count, localReportCount));
+      }
+
+      if (payload.allowed === false) {
+        setCheckMessage(FREE_LIMIT_MESSAGE);
+        setShowFreeLimitModal(true);
+        return false;
+      }
+
+      return true;
+    } catch {
+      setCheckMessage(
+        "Unable to verify your free checks right now. Please try again.",
+      );
+      return false;
+    }
+  };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -125,17 +184,17 @@ export default function DesignCheckPage() {
   const runChecks = async () => {
     setCheckMessage(null);
 
-    console.log("check count before run", freeCheckUsageCount);
-    console.log("free limit", FREE_CHECK_LIMIT);
-    console.log("allowed?", freeCheckUsageCount < FREE_CHECK_LIMIT);
+    if (!uploadedFile || !imageWidthPx || !imageHeightPx || printWidthIn <= 0) {
+      return;
+    }
 
-    if (
-      !uploadedFile ||
-      !imageWidthPx ||
-      !imageHeightPx ||
-      printWidthIn <= 0 ||
-      (plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT)
-    ) {
+    if (plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT) {
+      setCheckMessage(FREE_LIMIT_MESSAGE);
+      setShowFreeLimitModal(true);
+      return;
+    }
+
+    if (!(await verifyReportLimitBeforeAnalysis())) {
       return;
     }
 
@@ -220,43 +279,13 @@ export default function DesignCheckPage() {
       detailCard,
     ];
 
-    if (plan !== "pro") {
-      try {
-        const response = await fetch("/api/checks/consume", {
-          method: "POST",
-          cache: "no-store",
-        });
+    const report = await saveReport(nextResults);
 
-        const payload = (await response.json()) as {
-          allowed?: boolean;
-          count?: number;
-          message?: string;
-        };
-
-        if (response.status === 401) {
-          setCheckMessage("Please sign in to run your design check.");
-          router.push('/sign-in');
-          return;
-        }
-
-        if (!response.ok || payload.allowed === false) {
-          setCheckMessage(
-            payload.message ?? "You’ve used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.",
-          );
-          return;
-        }
-
-        if (typeof payload.count === "number") {
-          setFreeCheckUsageCount(payload.count);
-        }
-      } catch {
-        setCheckMessage("Unable to run your check right now. Please try again.");
-        return;
-      }
+    if (!report) {
+      return;
     }
 
     setResults(nextResults);
-    saveReport(nextResults);
   };
 
   const toStoredStatus = (status: CheckStatus): StoredStatus => {
@@ -297,15 +326,69 @@ export default function DesignCheckPage() {
     };
   };
 
-  const saveReport = (nextResults: ResultCard[]): StoredReport | null => {
+  const saveReport = async (
+    nextResults: ResultCard[],
+  ): Promise<StoredReport | null> => {
     const report = buildReport(nextResults);
 
     if (!report) {
       return null;
     }
 
-    saveReportToHistory(localStorage, report);
-    return report;
+    setIsSavingReport(true);
+
+    try {
+      const response = await fetch("/api/reports", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ report }),
+      });
+      const payload = (await response.json()) as {
+        allowed?: boolean;
+        count?: number;
+        message?: string;
+        plan?: "free" | "pro";
+      };
+
+      if (response.status === 401) {
+        setCheckMessage("Please sign in to run your design check.");
+        router.push("/sign-in");
+        return null;
+      }
+
+      if (response.status === 403 || payload.allowed === false) {
+        setCheckMessage(payload.message ?? FREE_LIMIT_MESSAGE);
+        setShowFreeLimitModal(true);
+        return null;
+      }
+
+      if (!response.ok) {
+        setCheckMessage(
+          payload.message ??
+            "Unable to save your report right now. Please try again.",
+        );
+        return null;
+      }
+
+      if (typeof payload.count === "number") {
+        setFreeCheckUsageCount(payload.count);
+      }
+
+      saveReportToHistory(
+        localStorage,
+        report,
+        payload.plan === "pro" ? undefined : FREE_CHECK_LIMIT,
+      );
+      return report;
+    } catch {
+      setCheckMessage(
+        "Unable to save your report right now. Please try again.",
+      );
+      return null;
+    } finally {
+      setIsSavingReport(false);
+    }
   };
 
   const handleCopySummary = async () => {
@@ -335,16 +418,15 @@ export default function DesignCheckPage() {
       return;
     }
 
-    saveReport(results);
     router.push("/report?latest=1");
   };
 
   const canRunChecks = Boolean(
     uploadedFile &&
-      imageWidthPx &&
-      imageHeightPx &&
-      printWidthIn > 0 &&
-      !isFreeLimitReached,
+    imageWidthPx &&
+    imageHeightPx &&
+    printWidthIn > 0 &&
+    !isSavingReport,
   );
 
   return (
@@ -437,15 +519,14 @@ export default function DesignCheckPage() {
         onClick={runChecks}
         type="button"
       >
-        3) Run checks
+        {isSavingReport ? "Saving report..." : "3) Run checks"}
       </button>
-      {checkMessage && (
-        <p className="text-sm text-[#f8df6d]">{checkMessage}</p>
-      )}
+      {checkMessage && <p className="text-sm text-[#f8df6d]">{checkMessage}</p>}
       {isFreeLimitReached && (
         <div className="space-y-3 rounded-lg border border-[#665716] bg-[#151515] p-4">
           <p className="text-sm text-[#f8df6d]">
-            You’ve used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.
+            You’ve used your 3 free design checks. Upgrade to Pro for unlimited
+            DTF readiness checks, saved reports, and faster print prep.
           </p>
           <Link
             className="inline-flex rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"
@@ -453,6 +534,36 @@ export default function DesignCheckPage() {
           >
             Upgrade to Pro
           </Link>
+        </div>
+      )}
+
+      {showFreeLimitModal && (
+        <div
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+        >
+          <div className="w-full max-w-md space-y-5 rounded-xl border border-[#f5c400] bg-[#151515] p-6 shadow-2xl">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">Free checks used</h2>
+              <p className="text-sm text-[#f8df6d]">{FREE_LIMIT_MESSAGE}</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                className="inline-flex rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"
+                href="/pricing"
+              >
+                Upgrade
+              </Link>
+              <button
+                className="rounded border border-[#665716] px-4 py-2 text-sm font-semibold text-[#f8df6d] hover:bg-[#2b260e]"
+                onClick={() => setShowFreeLimitModal(false)}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
