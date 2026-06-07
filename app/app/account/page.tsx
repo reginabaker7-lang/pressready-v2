@@ -4,7 +4,12 @@ import { SignOutButton } from "./sign-out-button";
 import { CheckoutRefresh } from "./checkout-refresh";
 import { SubscriptionCta } from "./subscription-cta";
 import { getAuthFromServer } from "@/app/lib/clerk";
-import { getUserSubscription, isActiveSubscriptionStatus } from "@/app/lib/subscription";
+import { FREE_CHECK_LIMIT } from "@/app/lib/free-check-limit";
+import {
+  getUserReportUsage,
+  getUserSubscription,
+  isActiveSubscriptionStatus,
+} from "@/app/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +19,8 @@ export default async function AccountPage() {
   let plan: "free" | "pro" = "free";
   let subscriptionStatus = "none";
   let subscriptionError: string | null = null;
+  let reportsUsed = 0;
+  let reportsUsageError: string | null = null;
   let isSubscriptionMissing = false;
 
   if (userId) {
@@ -32,7 +39,16 @@ export default async function AccountPage() {
       subscriptionError = error instanceof Error ? error.message : "Failed to load subscription";
       console.error("[account] failed to load subscription", { userId, subscriptionError });
     }
+
+    try {
+      reportsUsed = await getUserReportUsage(userId);
+    } catch (error) {
+      reportsUsageError = error instanceof Error ? error.message : "Failed to load report usage";
+      console.error("[account] failed to load report usage", { userId, reportsUsageError });
+    }
   }
+
+  const reportsRemaining = plan === "pro" ? null : Math.max(0, FREE_CHECK_LIMIT - reportsUsed);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
@@ -44,6 +60,13 @@ export default async function AccountPage() {
           <p>You’re signed in.</p>
           <p className="text-sm opacity-80">User ID: {userId}</p>
           <p className="text-sm opacity-80">Plan: {plan === "pro" ? "Pro" : "Free"}</p>
+          <p className="text-sm opacity-80">Plan status: {plan === "pro" ? "Pro" : "Free"}</p>
+          <p className="text-sm opacity-80">
+            Reports used: {plan === "pro" ? `${reportsUsed}/Unlimited` : `${reportsUsed}/${FREE_CHECK_LIMIT}`}
+          </p>
+          <p className="text-sm opacity-80">
+            Reports remaining: {reportsRemaining === null ? "Unlimited" : reportsRemaining}
+          </p>
           <p className="text-sm opacity-80">Subscription status: {subscriptionStatus}</p>
           {isSubscriptionMissing ? (
             <p className="text-sm opacity-80">
@@ -53,6 +76,9 @@ export default async function AccountPage() {
           ) : null}
           {subscriptionError ? (
             <p className="text-sm text-red-600">Subscription error: {subscriptionError}</p>
+          ) : null}
+          {reportsUsageError ? (
+            <p className="text-sm text-red-600">Report usage error: {reportsUsageError}</p>
           ) : null}
 
           <div className="mt-4 flex gap-3">

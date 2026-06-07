@@ -205,50 +205,42 @@ export async function findUserIdByStripeCustomerId(
   return data?.clerk_user_id ?? null;
 }
 
-export async function consumeFreeCheck(userId: string): Promise<{
+export async function getUserReportUsage(userId: string): Promise<number> {
+  const supabase = getSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from(checksTable)
+    .select("clerk_user_id,count")
+    .eq("clerk_user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`[checks] failed to read ${checksTable}: ${error.message}`);
+  }
+
+  return Math.max(0, (data as ChecksRow | null)?.count ?? 0);
+}
+
+export async function consumeReportCreation(userId: string): Promise<{
   allowed: boolean;
   count: number;
-  fallbackUsed: boolean;
 }> {
-  try {
-    const supabase = getSupabaseAdminClient();
+  const currentCount = await getUserReportUsage(userId);
 
-    const { data, error } = await supabase
-      .from(checksTable)
-      .select("clerk_user_id,count")
-      .eq("clerk_user_id", userId)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(`[checks] failed to read ${checksTable}: ${error.message}`);
-    }
-
-    const currentCount = Math.max(0, (data as ChecksRow | null)?.count ?? 0);
-
-    if (currentCount >= FREE_CHECK_LIMIT) {
-      return { allowed: false, count: currentCount, fallbackUsed: false };
-    }
-
-    const nextCount = currentCount + 1;
-
-    const { error: upsertError } = await supabase
-      .from(checksTable)
-      .upsert({ clerk_user_id: userId, count: nextCount }, { onConflict: "clerk_user_id" });
-
-    if (upsertError) {
-      throw new Error(`[checks] failed to upsert ${checksTable}: ${upsertError.message}`);
-    }
-
-    return { allowed: true, count: nextCount, fallbackUsed: false };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-
-    console.warn("[checks] consume unavailable, using fallback", {
-      table: checksTable,
-      userId,
-      message,
-    });
-
-    return { allowed: true, count: 0, fallbackUsed: true };
+  if (currentCount >= FREE_CHECK_LIMIT) {
+    return { allowed: false, count: currentCount };
   }
+
+  const nextCount = currentCount + 1;
+  const supabase = getSupabaseAdminClient();
+
+  const { error: upsertError } = await supabase
+    .from(checksTable)
+    .upsert({ clerk_user_id: userId, count: nextCount }, { onConflict: "clerk_user_id" });
+
+  if (upsertError) {
+    throw new Error(`[checks] failed to upsert ${checksTable}: ${upsertError.message}`);
+  }
+
+  return { allowed: true, count: nextCount };
 }
