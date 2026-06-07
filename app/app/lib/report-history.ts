@@ -44,7 +44,10 @@ const sanitizeResult = (value: unknown): StoredReportResult | null => {
   if (!value || typeof value !== "object") return null;
 
   const candidate = value as Partial<StoredReportResult>;
-  if (typeof candidate.title !== "string" || !isStoredStatus(candidate.status)) {
+  if (
+    typeof candidate.title !== "string" ||
+    !isStoredStatus(candidate.status)
+  ) {
     return null;
   }
 
@@ -53,7 +56,10 @@ const sanitizeResult = (value: unknown): StoredReportResult | null => {
     title: candidate.title,
     detail: typeof candidate.detail === "string" ? candidate.detail : undefined,
     fix: typeof candidate.fix === "string" ? candidate.fix : undefined,
-    suggestion: typeof candidate.suggestion === "string" ? candidate.suggestion : undefined,
+    suggestion:
+      typeof candidate.suggestion === "string"
+        ? candidate.suggestion
+        : undefined,
   };
 };
 
@@ -75,7 +81,9 @@ const sanitizeReport = (value: unknown): StoredReport | null => {
   }
 
   const results = Array.isArray(candidate.results)
-    ? candidate.results.map((result) => sanitizeResult(result)).filter((result): result is StoredReportResult => Boolean(result))
+    ? candidate.results
+        .map((result) => sanitizeResult(result))
+        .filter((result): result is StoredReportResult => Boolean(result))
     : [];
 
   return {
@@ -101,9 +109,13 @@ const buildSummaryText = (report: StoredReport): string =>
   [
     "PressReady DTF Report",
     report.fileName ? `File: ${report.fileName}` : null,
-    report.imageWidthPx && report.imageHeightPx ? `Size: ${report.imageWidthPx}x${report.imageHeightPx} px` : null,
+    report.imageWidthPx && report.imageHeightPx
+      ? `Size: ${report.imageWidthPx}x${report.imageHeightPx} px`
+      : null,
     report.printWidthIn ? `Print width: ${report.printWidthIn} in` : null,
-    report.shirtColor ? `Shirt: ${report.shirtColor} | White ink: ${report.whiteInk ? "yes" : "no"}` : null,
+    report.shirtColor
+      ? `Shirt: ${report.shirtColor} | White ink: ${report.whiteInk ? "yes" : "no"}`
+      : null,
     ...report.results.map((result) => {
       const fixText = result.fix ? ` — Fix: ${result.fix}` : "";
       const detailText = result.detail ? result.detail : result.title;
@@ -135,13 +147,16 @@ export const readReportHistory = (storage: Storage): StoredReportHistory => {
 
     const payload = parsed as { latestId?: unknown; reports?: unknown };
     const reports = Array.isArray(payload.reports)
-      ? payload.reports.map((report) => sanitizeReport(report)).filter((report): report is StoredReport => Boolean(report))
+      ? payload.reports
+          .map((report) => sanitizeReport(report))
+          .filter((report): report is StoredReport => Boolean(report))
       : [];
 
     const latestId =
-      typeof payload.latestId === "string" && reports.some((report) => report.id === payload.latestId)
+      typeof payload.latestId === "string" &&
+      reports.some((report) => report.id === payload.latestId)
         ? payload.latestId
-        : reports[0]?.id ?? null;
+        : (reports[0]?.id ?? null);
 
     return { latestId, reports };
   } catch {
@@ -155,7 +170,11 @@ export const loadHistory = (storage: Storage): StoredReportWithSummary[] =>
     summaryText: buildSummaryText(report),
   }));
 
-export const saveReportToHistory = (storage: Storage, report: StoredReport): void => {
+export const saveReportToHistory = (
+  storage: Storage,
+  report: StoredReport,
+  maxReports = 20,
+): void => {
   const history = readReportHistory(storage);
 
   const normalizedReport: StoredReport = {
@@ -201,7 +220,10 @@ export const saveReportToHistory = (storage: Storage, report: StoredReport): voi
 
     return (
       existingResultsSignature === normalizedResultsSignature ||
-      isWithinGeneratedAtWindow(existingReport.createdAt, normalizedReport.createdAt)
+      isWithinGeneratedAtWindow(
+        existingReport.createdAt,
+        normalizedReport.createdAt,
+      )
     );
   });
 
@@ -216,7 +238,10 @@ export const saveReportToHistory = (storage: Storage, report: StoredReport): voi
     return;
   }
 
-  const reports = [normalizedReport, ...history.reports.filter((item) => item.id !== normalizedReport.id)].slice(0, 20);
+  const reports = [
+    normalizedReport,
+    ...history.reports.filter((item) => item.id !== normalizedReport.id),
+  ].slice(0, Math.max(1, maxReports));
 
   storage.setItem(
     REPORT_STORAGE_KEY,
@@ -230,7 +255,9 @@ export const saveReportToHistory = (storage: Storage, report: StoredReport): voi
 export const deleteFromHistory = (storage: Storage, id: string): void => {
   const history = readReportHistory(storage);
   const reports = history.reports.filter((report) => report.id !== id);
-  const latestId = reports.some((report) => report.id === history.latestId) ? history.latestId : reports[0]?.id ?? null;
+  const latestId = reports.some((report) => report.id === history.latestId)
+    ? history.latestId
+    : (reports[0]?.id ?? null);
 
   storage.setItem(
     REPORT_STORAGE_KEY,
@@ -245,7 +272,10 @@ export const clearHistory = (storage: Storage): void => {
   storage.removeItem(REPORT_STORAGE_KEY);
 };
 
-export const getReportFromHistory = (storage: Storage, params: { id?: string | null; latest?: string | null }): StoredReport | null => {
+export const getReportFromHistory = (
+  storage: Storage,
+  params: { id?: string | null; latest?: string | null },
+): StoredReport | null => {
   const history = readReportHistory(storage);
 
   if (!history.reports.length) return null;
@@ -256,11 +286,19 @@ export const getReportFromHistory = (storage: Storage, params: { id?: string | n
 
   if (params.latest === "1") {
     if (!history.latestId) return history.reports[0] ?? null;
-    return history.reports.find((report) => report.id === history.latestId) ?? history.reports[0] ?? null;
+    return (
+      history.reports.find((report) => report.id === history.latestId) ??
+      history.reports[0] ??
+      null
+    );
   }
 
   if (history.latestId) {
-    return history.reports.find((report) => report.id === history.latestId) ?? history.reports[0] ?? null;
+    return (
+      history.reports.find((report) => report.id === history.latestId) ??
+      history.reports[0] ??
+      null
+    );
   }
 
   return history.reports[0] ?? null;

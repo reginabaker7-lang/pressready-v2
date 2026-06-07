@@ -2,9 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { clearHistory, deleteFromHistory, loadHistory, type StoredReportWithSummary, type StoredStatus } from "@/app/lib/report-history";
+import { FREE_CHECK_LIMIT } from "@/app/lib/free-check-limit";
+import {
+  clearHistory,
+  deleteFromHistory,
+  loadHistory,
+  type StoredReportWithSummary,
+  type StoredStatus,
+} from "@/app/lib/report-history";
 
 const statusLabelMap: Record<StoredStatus, string> = {
   pass: "PASS",
@@ -19,23 +26,52 @@ const statusClassMap: Record<StoredStatus, string> = {
 };
 
 const getOverallStatus = (report: StoredReportWithSummary): StoredStatus => {
-  if (report.results.some((result) => result.status === "error")) return "error";
-  if (report.results.some((result) => result.status === "warning")) return "warning";
+  if (report.results.some((result) => result.status === "error"))
+    return "error";
+  if (report.results.some((result) => result.status === "warning"))
+    return "warning";
   return "pass";
+};
+
+const getVisibleHistory = (plan: "free" | "pro") => {
+  if (typeof window === "undefined") return [];
+
+  const history = loadHistory(localStorage);
+  return plan === "pro" ? history : history.slice(0, FREE_CHECK_LIMIT);
 };
 
 export default function HistoryClient() {
   const router = useRouter();
-  const [items, setItems] = useState<StoredReportWithSummary[]>(() => {
-    if (typeof window === "undefined") return [];
-    return loadHistory(localStorage);
-  });
+  const [plan, setPlan] = useState<"free" | "pro">("free");
+  const [items, setItems] = useState<StoredReportWithSummary[]>(() =>
+    getVisibleHistory("free"),
+  );
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const refreshHistory = () => {
-    setItems(loadHistory(localStorage));
-  };
+  const refreshHistory = useCallback((nextPlan: "free" | "pro") => {
+    setItems(getVisibleHistory(nextPlan));
+  }, []);
 
+  useEffect(() => {
+    const loadReportLimit = async () => {
+      try {
+        const response = await fetch("/api/reports/limit", {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+
+        const data = (await response.json()) as { plan?: "free" | "pro" };
+        const nextPlan = data.plan === "pro" ? "pro" : "free";
+        setPlan(nextPlan);
+        refreshHistory(nextPlan);
+      } catch {
+        setPlan("free");
+        refreshHistory("free");
+      }
+    };
+
+    loadReportLimit();
+  }, [refreshHistory]);
 
   const handleCopySummary = async (item: StoredReportWithSummary) => {
     await navigator.clipboard.writeText(item.summaryText);
@@ -45,13 +81,13 @@ export default function HistoryClient() {
 
   const handleDelete = (id: string) => {
     deleteFromHistory(localStorage, id);
-    refreshHistory();
+    refreshHistory(plan);
   };
 
   const handleClear = () => {
     if (!window.confirm("Clear all saved reports from history?")) return;
     clearHistory(localStorage);
-    refreshHistory();
+    refreshHistory(plan);
   };
 
   return (
@@ -59,7 +95,9 @@ export default function HistoryClient() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">History</h1>
-          <p className="text-sm text-[#f8df6d]">Saved reports are stored in your browser.</p>
+          <p className="text-sm text-[#f8df6d]">
+            Saved reports are stored in your browser.
+          </p>
         </div>
         <button
           className="rounded border border-[#665716] bg-[#111] px-4 py-2 text-sm font-semibold uppercase tracking-wider transition hover:bg-[#1b1b1b]"
@@ -73,7 +111,10 @@ export default function HistoryClient() {
       {!items.length ? (
         <div className="rounded-lg border border-[#4a3f11] bg-[#151515] p-6 text-center">
           <p className="mb-4 text-lg font-semibold">No saved reports yet</p>
-          <Link className="inline-flex rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold" href="/check">
+          <Link
+            className="inline-flex rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold"
+            href="/check"
+          >
             Start a Design Check
           </Link>
         </div>
@@ -82,17 +123,28 @@ export default function HistoryClient() {
           {items.map((item) => {
             const status = getOverallStatus(item);
             const date = new Date(item.createdAt);
-            const dateLabel = Number.isNaN(date.getTime()) ? item.createdAt : date.toLocaleString();
+            const dateLabel = Number.isNaN(date.getTime())
+              ? item.createdAt
+              : date.toLocaleString();
 
             return (
-              <li className="rounded-lg border border-[#4a3f11] bg-[#151515] p-4" key={item.id}>
+              <li
+                className="rounded-lg border border-[#4a3f11] bg-[#151515] p-4"
+                key={item.id}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="space-y-1">
-                    <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusClassMap[status]}`}>
+                    <span
+                      className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusClassMap[status]}`}
+                    >
                       {statusLabelMap[status]}
                     </span>
-                    <p className="text-lg font-semibold">{item.fileName || "Untitled report"}</p>
-                    <p className="text-sm text-[#f8df6d]">Generated {dateLabel}</p>
+                    <p className="text-lg font-semibold">
+                      {item.fileName || "Untitled report"}
+                    </p>
+                    <p className="text-sm text-[#f8df6d]">
+                      Generated {dateLabel}
+                    </p>
                   </div>
                   <div className="flex flex-wrap gap-2 text-sm font-semibold">
                     <button
