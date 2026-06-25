@@ -171,6 +171,7 @@ export default function DesignCheckPage() {
   const [copied, setCopied] = useState(false);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [plan, setPlan] = useState<"free" | "pro">("free");
+  const [isSignedIn, setIsSignedIn] = useState(false);
   const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(0);
 
   const acceptedTypes = useMemo(
@@ -189,15 +190,25 @@ export default function DesignCheckPage() {
           return;
         }
 
-        const data = (await response.json()) as { plan?: "free" | "pro" };
+        const data = (await response.json()) as {
+          plan?: "free" | "pro";
+          isSignedIn?: boolean;
+          freeCheckUsageCount?: number;
+        };
+        setIsSignedIn(Boolean(data.isSignedIn));
         if (data.plan === "pro") {
           setPlan("pro");
+          setFreeCheckUsageCount(0);
           return;
         }
 
         setPlan("free");
+        if (typeof data.freeCheckUsageCount === "number") {
+          setFreeCheckUsageCount(data.freeCheckUsageCount);
+        }
       } catch {
         setPlan("free");
+        setIsSignedIn(false);
       }
     };
 
@@ -261,8 +272,12 @@ export default function DesignCheckPage() {
       !imageWidthPx ||
       !imageHeightPx ||
       printWidthIn <= 0 ||
+      !isSignedIn ||
       (plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT)
     ) {
+      if (!isSignedIn) {
+        setCheckMessage("Create a free PressReady account to use your 3 free checks.");
+      }
       return;
     }
 
@@ -439,8 +454,8 @@ export default function DesignCheckPage() {
         };
 
         if (response.status === 401) {
-          setCheckMessage("Please sign in to run your design check.");
-          router.push('/sign-in');
+          setCheckMessage(payload.message ?? "Create a free PressReady account to use your 3 free checks.");
+          router.push("/sign-in");
           return;
         }
 

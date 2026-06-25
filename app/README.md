@@ -42,6 +42,19 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 - Webhook endpoint should be:
   - `https://<vercel-domain>/api/stripe/webhook`
 
+
+### Clerk production env vars in Vercel
+Set these Clerk variables in the Vercel **Production** environment:
+
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — Clerk production publishable key (`pk_live_...`).
+- `CLERK_SECRET_KEY` — Clerk production secret key (`sk_live_...`). Keep server-only.
+- `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`
+- `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up`
+- `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/account`
+- `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/account`
+
+The Clerk application name shown inside hosted Clerk UI copy is configured in the Clerk Dashboard. Set it to `PressReady` for production if Clerk is still showing `My Application`.
+
 ### Required env vars
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - `STRIPE_SECRET_KEY`
