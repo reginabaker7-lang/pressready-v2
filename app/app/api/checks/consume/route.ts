@@ -31,6 +31,7 @@ export async function POST() {
           allowed: false,
           plan: "free",
           count: result.count,
+          limit: result.limit,
           message: "You've used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.",
         },
         { status: 403 },
@@ -42,13 +43,20 @@ export async function POST() {
         allowed: true,
         plan: "free",
         count: result.count,
-        fallbackUsed: result.fallbackUsed,
+        limit: result.limit,
       },
       { status: 200 },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to process checks";
     console.error("[checks] failed", { userId, message });
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      {
+        allowed: false,
+        error: message,
+        message: "Unable to verify your free design check limit. Please try again shortly.",
+      },
+      { status: 503 },
+    );
   }
 }

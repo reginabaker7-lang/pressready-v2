@@ -189,7 +189,14 @@ export default function DesignCheckPage() {
           return;
         }
 
-        const data = (await response.json()) as { plan?: "free" | "pro" };
+        const data = (await response.json()) as {
+          plan?: "free" | "pro";
+          freeCheckUsageCount?: number;
+        };
+        if (typeof data.freeCheckUsageCount === "number") {
+          setFreeCheckUsageCount(data.freeCheckUsageCount);
+        }
+
         if (data.plan === "pro") {
           setPlan("pro");
           return;
@@ -440,7 +447,7 @@ export default function DesignCheckPage() {
 
         if (response.status === 401) {
           setCheckMessage("Please sign in to run your design check.");
-          router.push('/sign-in');
+          router.push("/sign-in");
           return;
         }
 
