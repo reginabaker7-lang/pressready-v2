@@ -4,6 +4,7 @@ import {
   findUserIdByStripeCustomerId,
   toSubscriptionMetadata,
   upsertUserSubscription,
+  type PlanName,
 } from "@/app/lib/subscription";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -35,6 +36,10 @@ function getCustomerId(value: unknown): string | null {
   }
 
   return null;
+}
+
+function getPlanFromMetadata(metadata: Stripe.Metadata | null | undefined): Exclude<PlanName, "free"> | undefined {
+  return metadata?.plan === "studio" ? "studio" : metadata?.plan === "pro" ? "pro" : undefined;
 }
 
 function getClerkUserIdFromMetadata(metadata: Stripe.Metadata | null | undefined): string | null {
@@ -185,7 +190,7 @@ async function processSubscriptionEvent(
   sourceSubscription?: Stripe.Subscription,
 ) {
   let subscription: Stripe.Subscription | null = sourceSubscription ?? null;
-  let forcedPlan: "free" | "pro" | undefined;
+  let forcedPlan: PlanName | undefined;
 
   if (!subscription && event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
@@ -206,7 +211,7 @@ async function processSubscriptionEvent(
     }
 
     if (session.payment_status === "paid") {
-      forcedPlan = "pro";
+      forcedPlan = getPlanFromMetadata(session.metadata) ?? getPlanFromMetadata(subscription.metadata) ?? "pro";
     }
   } else if (!subscription) {
     subscription = event.data.object as Stripe.Subscription;

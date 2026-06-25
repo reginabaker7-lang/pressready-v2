@@ -39,7 +39,7 @@ export default function DesignCheckPage() {
   const [results, setResults] = useState<ResultCard[] | null>(null);
   const [copied, setCopied] = useState(false);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
-  const [plan, setPlan] = useState<"free" | "pro">("free");
+  const [plan, setPlan] = useState<"free" | "pro" | "studio">("free");
   const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(0);
 
   const acceptedTypes = useMemo(
@@ -58,9 +58,9 @@ export default function DesignCheckPage() {
           return;
         }
 
-        const data = (await response.json()) as { plan?: "free" | "pro" };
-        if (data.plan === "pro") {
-          setPlan("pro");
+        const data = (await response.json()) as { plan?: "free" | "pro" | "studio" };
+        if (data.plan === "pro" || data.plan === "studio") {
+          setPlan(data.plan);
           return;
         }
 
@@ -82,7 +82,7 @@ export default function DesignCheckPage() {
   }, [previewUrl]);
 
   const isFreeLimitReached =
-    plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT;
+    plan === "free" && freeCheckUsageCount >= FREE_CHECK_LIMIT;
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -134,7 +134,7 @@ export default function DesignCheckPage() {
       !imageWidthPx ||
       !imageHeightPx ||
       printWidthIn <= 0 ||
-      (plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT)
+      (plan === "free" && freeCheckUsageCount >= FREE_CHECK_LIMIT)
     ) {
       return;
     }
@@ -220,7 +220,7 @@ export default function DesignCheckPage() {
       detailCard,
     ];
 
-    if (plan !== "pro") {
+    if (plan === "free") {
       try {
         const response = await fetch("/api/checks/consume", {
           method: "POST",
@@ -241,7 +241,7 @@ export default function DesignCheckPage() {
 
         if (!response.ok || payload.allowed === false) {
           setCheckMessage(
-            payload.message ?? "You’ve used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.",
+            payload.message ?? "You’ve used your 3 free design checks. Upgrade when you’re ready for unlimited DTF readiness checks, saved reports, and faster print prep.",
           );
           return;
         }
@@ -445,7 +445,7 @@ export default function DesignCheckPage() {
       {isFreeLimitReached && (
         <div className="space-y-3 rounded-lg border border-[#665716] bg-[#151515] p-4">
           <p className="text-sm text-[#f8df6d]">
-            You’ve used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.
+            You’ve used your 3 free design checks. Upgrade when you’re ready for unlimited DTF readiness checks, saved reports, and faster print prep.
           </p>
           <Link
             className="inline-flex rounded border border-[#f5c400] px-4 py-2 text-sm font-semibold hover:bg-[#2b260e]"

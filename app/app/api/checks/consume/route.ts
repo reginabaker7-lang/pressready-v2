@@ -19,8 +19,8 @@ export async function POST() {
   try {
     const plan = await getUserPlan(userId);
 
-    if (plan === "pro") {
-      return NextResponse.json({ allowed: true, plan: "pro" }, { status: 200 });
+    if (plan !== "free") {
+      return NextResponse.json({ allowed: true, plan }, { status: 200 });
     }
 
     const result = await consumeFreeCheck(userId);
@@ -31,7 +31,7 @@ export async function POST() {
           allowed: false,
           plan: "free",
           count: result.count,
-          message: "You've used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.",
+          message: "You've used your 3 free design checks. Upgrade when you're ready for unlimited DTF readiness checks, saved reports, and faster print prep.",
         },
         { status: 403 },
       );

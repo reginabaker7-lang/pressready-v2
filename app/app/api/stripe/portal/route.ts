@@ -31,7 +31,7 @@ async function getPortalUrl(req: Request) {
     const stripeCustomerId = subscription?.stripe_customer_id;
 
     if (!hasActiveSubscription || !stripeCustomerId) {
-      console.log("[stripe:portal] User does not have an active Pro subscription", {
+      console.log("[stripe:portal] User does not have an active paid subscription", {
         userId,
         status: subscription?.stripe_subscription_status ?? "none",
       });

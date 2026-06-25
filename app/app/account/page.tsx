@@ -4,14 +4,16 @@ import { SignOutButton } from "./sign-out-button";
 import { CheckoutRefresh } from "./checkout-refresh";
 import { SubscriptionCta } from "./subscription-cta";
 import { getAuthFromServer } from "@/app/lib/clerk";
-import { getUserSubscription, isActiveSubscriptionStatus } from "@/app/lib/subscription";
+import { FREE_CHECK_LIMIT } from "@/app/lib/free-check-limit";
+import { getFreeCheckCount, getUserSubscription, isActiveSubscriptionStatus, type PlanName } from "@/app/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
   const { userId } = await getAuthFromServer();
 
-  let plan: "free" | "pro" = "free";
+  let plan: PlanName = "free";
+  let freeChecksUsed = 0;
   let subscriptionStatus = "none";
   let subscriptionError: string | null = null;
   let isSubscriptionMissing = false;
@@ -23,11 +25,13 @@ export default async function AccountPage() {
         isSubscriptionMissing = true;
       } else {
         plan =
-          subscription.plan === "pro" || isActiveSubscriptionStatus(subscription.stripe_subscription_status)
-            ? "pro"
+          isActiveSubscriptionStatus(subscription.stripe_subscription_status) && subscription.plan !== "free"
+            ? subscription.plan
             : "free";
         subscriptionStatus = subscription.stripe_subscription_status ?? "none";
       }
+
+      freeChecksUsed = await getFreeCheckCount(userId);
     } catch (error) {
       subscriptionError = error instanceof Error ? error.message : "Failed to load subscription";
       console.error("[account] failed to load subscription", { userId, subscriptionError });
@@ -43,7 +47,12 @@ export default async function AccountPage() {
           <CheckoutRefresh initialPlan={plan} />
           <p>You’re signed in.</p>
           <p className="text-sm opacity-80">User ID: {userId}</p>
-          <p className="text-sm opacity-80">Plan: {plan === "pro" ? "Pro" : "Free"}</p>
+          <p className="text-sm opacity-80">Current plan: {plan === "studio" ? "Studio" : plan === "pro" ? "Pro" : "Free"}</p>
+          {plan === "free" ? (
+            <p className="text-sm opacity-80">
+              Checks used: {Math.min(freeChecksUsed, FREE_CHECK_LIMIT)} of {FREE_CHECK_LIMIT}
+            </p>
+          ) : null}
           <p className="text-sm opacity-80">Subscription status: {subscriptionStatus}</p>
           {isSubscriptionMissing ? (
             <p className="text-sm opacity-80">
