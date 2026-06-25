@@ -64,9 +64,9 @@ export default function PricingClient({ isSignedIn, currentPlan }: PricingClient
   };
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid min-w-0 gap-6 md:grid-cols-2">
       <article className="rounded-xl border border-[var(--pressready-gold)]/40 bg-black/40 p-6">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-2xl font-bold">Free</h2>
           {currentPlan === "free" ? (
             <span className="rounded border border-[var(--pressready-gold)]/70 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[var(--pressready-gold)]">
@@ -90,7 +90,7 @@ export default function PricingClient({ isSignedIn, currentPlan }: PricingClient
       </article>
 
       <article className="rounded-xl border border-[var(--pressready-gold)] bg-[var(--pressready-gold)]/10 p-6 shadow-[0_0_0_1px_var(--pressready-gold)]">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-2xl font-bold">Pro</h2>
           {isPro ? (
             <span className="rounded border border-[var(--pressready-gold)] bg-[var(--pressready-gold)]/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[var(--pressready-gold)]">
@@ -113,7 +113,7 @@ export default function PricingClient({ isSignedIn, currentPlan }: PricingClient
           <div className="mt-8 space-y-3">
             <p className="text-sm font-semibold text-[var(--pressready-gold)]">Current Plan: Pro</p>
             <button
-              className="inline-flex w-full items-center justify-center rounded-md border border-[var(--pressready-gold)]/60 bg-[var(--pressready-gold)]/25 px-4 py-2 font-semibold text-[var(--pressready-gold)] disabled:cursor-not-allowed disabled:opacity-90"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-[var(--pressready-gold)]/60 bg-[var(--pressready-gold)]/25 px-4 py-3 font-semibold text-[var(--pressready-gold)] disabled:cursor-not-allowed disabled:opacity-90"
               disabled
               type="button"
             >
@@ -122,7 +122,7 @@ export default function PricingClient({ isSignedIn, currentPlan }: PricingClient
           </div>
         ) : (
           <button
-            className="mt-8 inline-flex w-full items-center justify-center rounded-md border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-2 font-semibold text-black transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70"
+            className="mt-8 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-[var(--pressready-gold)] bg-[var(--pressready-gold)] px-4 py-3 font-semibold text-black transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70"
             disabled={isLoading}
             onClick={handleUpgrade}
             type="button"

@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { FREE_CHECK_LIMIT } from "@/app/lib/free-check-limit";
 
-export type PlanName = "free" | "pro";
+export type PlanName = "free" | "pro" | "studio";
 
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
   "active",
@@ -62,6 +62,10 @@ function getSupabaseAdminClient() {
 
 function planFromStatus(status: string | null | undefined): PlanName {
   return status && ACTIVE_SUBSCRIPTION_STATUSES.has(status) ? "pro" : "free";
+}
+
+export function isPaidPlan(plan: PlanName | null | undefined): boolean {
+  return plan === "pro" || plan === "studio";
 }
 
 export function isActiveSubscriptionStatus(status: string | null | undefined): boolean {
@@ -178,7 +182,7 @@ export async function getUserPlan(userId: string): Promise<PlanName> {
     return "free";
   }
 
-  if (data.plan === "pro") {
+  if (isPaidPlan(data.plan)) {
     return "pro";
   }
 
