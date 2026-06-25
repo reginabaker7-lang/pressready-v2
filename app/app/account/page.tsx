@@ -35,8 +35,8 @@ export default async function AccountPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-10">
-      <h1 className="text-4xl font-bold">Account</h1>
+    <main className="mx-auto w-full max-w-3xl overflow-hidden px-4 py-8 sm:px-6 sm:py-10">
+      <h1 className="text-3xl font-bold sm:text-4xl">Account</h1>
 
       {userId ? (
         <div className="mt-6 space-y-3">
@@ -55,12 +55,12 @@ export default async function AccountPage() {
             <p className="text-sm text-red-600">Subscription error: {subscriptionError}</p>
           ) : null}
 
-          <div className="mt-4 flex gap-3">
-            <Link className="border border-current px-4 py-2 rounded-lg" href="/pricing">
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link className="inline-flex min-h-11 items-center rounded-lg border border-current px-4 py-3" href="/pricing">
               Pricing
             </Link>
             <SubscriptionCta plan={plan} />
-            <Link className="border border-current px-4 py-2 rounded-lg" href="/history">
+            <Link className="inline-flex min-h-11 items-center rounded-lg border border-current px-4 py-3" href="/history">
               History
             </Link>
             <SignOutButton />
@@ -69,7 +69,7 @@ export default async function AccountPage() {
       ) : (
         <div className="mt-6 space-y-3">
           <p>You’re signed out.</p>
-          <Link className="border border-current px-4 py-2 rounded-lg inline-block" href="/sign-in">
+          <Link className="inline-flex min-h-11 items-center rounded-lg border border-current px-4 py-3" href="/sign-in">
             Sign in
           </Link>
         </div>

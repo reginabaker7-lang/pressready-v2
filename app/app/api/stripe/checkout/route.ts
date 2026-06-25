@@ -57,22 +57,6 @@ export async function POST(req: Request) {
       : stripeSecretKey.startsWith("sk_test_")
         ? "test"
         : "unknown";
-    const priceMode = proPriceId.startsWith("price_")
-      ? "unknown"
-      : proPriceId.startsWith("price_live_")
-        ? "live"
-        : proPriceId.startsWith("price_test_")
-          ? "test"
-          : "unknown";
-
-    if (configuredMode !== "unknown" && priceMode !== "unknown" && configuredMode !== priceMode) {
-      console.error("[stripe:checkout] Stripe key/price mode mismatch", {
-        configuredMode,
-        proPriceId,
-      });
-      return NextResponse.json({ error: "Stripe mode mismatch for price" }, { status: 500 });
-    }
-
     const price = await stripe.prices.retrieve(proPriceId, { expand: ["product"] });
 
     if (!price.active) {

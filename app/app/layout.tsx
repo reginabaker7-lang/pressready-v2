@@ -13,7 +13,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <body className="antialiased">
         <header className="border-b border-[var(--pressready-gold)]/40">
-          <nav className="mx-auto flex w-full max-w-5xl items-center gap-6 px-6 py-4 text-sm font-semibold uppercase tracking-widest">
+          <nav className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4 text-sm font-semibold uppercase tracking-widest sm:px-6">
             <Link href="/">Home</Link>
             <Link href="/check">Check</Link>
             <Link href="/report">Report</Link>
@@ -22,7 +22,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/account">Account</Link>
           </nav>
         </header>
-        <main className="mx-auto w-full max-w-5xl px-6 py-12">{children}</main>
+        <main className="mx-auto w-full max-w-5xl overflow-hidden px-4 py-8 sm:px-6 sm:py-12">{children}</main>
       </body>
     </html>
   );
