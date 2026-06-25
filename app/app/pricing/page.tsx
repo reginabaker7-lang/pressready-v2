@@ -2,12 +2,12 @@ import Link from "next/link";
 
 import { getAuthFromServer } from "@/app/lib/clerk";
 import PricingClient from "@/app/pricing/pricing-client";
-import { getUserPlan } from "@/app/lib/subscription";
+import { getUserPlan, type PlanName } from "@/app/lib/subscription";
 
 export default async function PricingPage() {
   const { userId } = await getAuthFromServer();
 
-  let plan: "free" | "pro" = "free";
+  let plan: PlanName = "free";
 
   if (userId) {
     try {
