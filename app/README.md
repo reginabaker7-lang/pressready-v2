@@ -71,6 +71,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ### Production checklist
 - Stripe webhook endpoint in Dashboard is exactly:
   - `https://<vercel-domain>/api/stripe/webhook`
+- Keep **exactly one** webhook endpoint for that URL in Stripe. If multiple endpoints point to the same Vercel URL, Stripe can sign deliveries with different secrets and signature verification will fail.
 - Webhook events selected at minimum:
   - `checkout.session.completed`
   - `customer.subscription.created`
@@ -78,5 +79,5 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
   - `customer.subscription.deleted`
   - `invoice.paid`
   - `invoice.payment_failed`
-- `STRIPE_WEBHOOK_SECRET` is set in Vercel for the correct environment(s).
-- Trigger a new deployment after env changes and verify latest commit SHA is active.
+- Copy the `whsec_...` signing secret from that single endpoint and set `STRIPE_WEBHOOK_SECRET` in Vercel for the correct environment(s).
+- Trigger a new deployment immediately after updating `STRIPE_WEBHOOK_SECRET`, then verify the latest commit SHA is active.
