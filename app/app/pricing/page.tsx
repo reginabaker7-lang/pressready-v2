@@ -7,7 +7,7 @@ import { getUserPlan } from "@/app/lib/subscription";
 export default async function PricingPage() {
   const { userId } = await getAuthFromServer();
 
-  let plan: "free" | "pro" = "free";
+  let plan: "free" | "pro" | "studio" = "free";
 
   if (userId) {
     try {

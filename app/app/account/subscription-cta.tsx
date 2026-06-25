@@ -3,11 +3,11 @@
 import Link from "next/link";
 
 type SubscriptionCtaProps = {
-  plan: "free" | "pro";
+  plan: "free" | "pro" | "studio";
 };
 
 export function SubscriptionCta({ plan }: SubscriptionCtaProps) {
-  if (plan === "pro") {
+  if (plan !== "free") {
     return (
       <button
         type="button"
@@ -20,7 +20,7 @@ export function SubscriptionCta({ plan }: SubscriptionCtaProps) {
         }}
         className="rounded-xl border border-[#f5c400] bg-[#f5c400] px-5 py-3 font-semibold text-black"
       >
-        Manage Subscription
+        Manage billing
       </button>
     );
   }

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type CheckoutRefreshProps = {
-  initialPlan: "free" | "pro";
+  initialPlan: "free" | "pro" | "studio";
 };
 
 export function CheckoutRefresh({ initialPlan }: CheckoutRefreshProps) {
@@ -13,7 +13,7 @@ export function CheckoutRefresh({ initialPlan }: CheckoutRefreshProps) {
   const checkoutState = searchParams.get("checkout");
 
   useEffect(() => {
-    if (checkoutState !== "success" || initialPlan === "pro") {
+    if (checkoutState !== "success" || initialPlan !== "free") {
       return;
     }
 
@@ -29,8 +29,8 @@ export function CheckoutRefresh({ initialPlan }: CheckoutRefreshProps) {
           return;
         }
 
-        const data = (await response.json()) as { plan?: "free" | "pro" };
-        if (data.plan === "pro") {
+        const data = (await response.json()) as { plan?: "free" | "pro" | "studio" };
+        if (data.plan === "pro" || data.plan === "studio") {
           clearInterval(timer);
           router.replace("/account");
           router.refresh();

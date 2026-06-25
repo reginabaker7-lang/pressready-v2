@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { FREE_CHECK_LIMIT } from "@/app/lib/free-check-limit";
 
-export type PlanName = "free" | "pro";
+export type PlanName = "free" | "pro" | "studio";
 
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
   "active",
@@ -60,8 +60,16 @@ function getSupabaseAdminClient() {
   });
 }
 
-function planFromStatus(status: string | null | undefined): PlanName {
-  return status && ACTIVE_SUBSCRIPTION_STATUSES.has(status) ? "pro" : "free";
+function planFromStatus(status: string | null | undefined, paidPlan: PlanName = "pro"): PlanName {
+  return status && ACTIVE_SUBSCRIPTION_STATUSES.has(status) ? paidPlan : "free";
+}
+
+function normalizePlan(plan: string | null | undefined): PlanName | undefined {
+  if (plan === "free" || plan === "pro" || plan === "studio") {
+    return plan;
+  }
+
+  return undefined;
 }
 
 export function isActiveSubscriptionStatus(status: string | null | undefined): boolean {
@@ -178,8 +186,10 @@ export async function getUserPlan(userId: string): Promise<PlanName> {
     return "free";
   }
 
-  if (data.plan === "pro") {
-    return "pro";
+  const storedPlan = normalizePlan(data.plan);
+
+  if (storedPlan && storedPlan !== "free" && isActiveSubscriptionStatus(data.stripe_subscription_status)) {
+    return storedPlan;
   }
 
   return planFromStatus(data.stripe_subscription_status);
@@ -203,6 +213,31 @@ export async function findUserIdByStripeCustomerId(
   }
 
   return data?.clerk_user_id ?? null;
+}
+
+export async function getFreeCheckCount(userId: string): Promise<number> {
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from(checksTable)
+      .select("count")
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`[checks] failed to read ${checksTable}: ${error.message}`);
+    }
+
+    return Math.max(0, (data as Pick<ChecksRow, "count"> | null)?.count ?? 0);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.warn("[checks] count unavailable, defaulting to 0", {
+      table: checksTable,
+      userId,
+      message,
+    });
+    return 0;
+  }
 }
 
 export async function consumeFreeCheck(userId: string): Promise<{
