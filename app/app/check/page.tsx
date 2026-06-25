@@ -171,6 +171,7 @@ export default function DesignCheckPage() {
   const [copied, setCopied] = useState(false);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [plan, setPlan] = useState<"free" | "pro">("free");
+  const [authStatus, setAuthStatus] = useState<"loading" | "signed-out" | "signed-in">("loading");
   const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(0);
 
   const acceptedTypes = useMemo(
@@ -186,18 +187,29 @@ export default function DesignCheckPage() {
       try {
         const response = await fetch("/api/plan", { cache: "no-store" });
         if (!response.ok) {
+          setAuthStatus("loading");
           return;
         }
 
-        const data = (await response.json()) as { plan?: "free" | "pro" };
+        const data = (await response.json()) as {
+          plan?: "free" | "pro";
+          isSignedIn?: boolean;
+          freeCheckUsageCount?: number;
+        };
+        setAuthStatus(data.isSignedIn ? "signed-in" : "signed-out");
         if (data.plan === "pro") {
           setPlan("pro");
+          setFreeCheckUsageCount(0);
           return;
         }
 
         setPlan("free");
+        if (typeof data.freeCheckUsageCount === "number") {
+          setFreeCheckUsageCount(data.freeCheckUsageCount);
+        }
       } catch {
         setPlan("free");
+        setAuthStatus("loading");
       }
     };
 
@@ -261,8 +273,12 @@ export default function DesignCheckPage() {
       !imageWidthPx ||
       !imageHeightPx ||
       printWidthIn <= 0 ||
+      authStatus !== "signed-in" ||
       (plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT)
     ) {
+      if (authStatus === "signed-out") {
+        setCheckMessage("Create a free PressReady account to use your 3 free checks.");
+      }
       return;
     }
 
@@ -439,8 +455,8 @@ export default function DesignCheckPage() {
         };
 
         if (response.status === 401) {
-          setCheckMessage("Please sign in to run your design check.");
-          router.push('/sign-in');
+          setCheckMessage(payload.message ?? "Create a free PressReady account to use your 3 free checks.");
+          router.push("/sign-in");
           return;
         }
 
@@ -549,6 +565,7 @@ export default function DesignCheckPage() {
       imageWidthPx &&
       imageHeightPx &&
       printWidthIn > 0 &&
+      authStatus !== "loading" &&
       !isFreeLimitReached,
   );
 

@@ -179,6 +179,7 @@ export async function getUserPlan(userId: string): Promise<PlanName> {
   const data = await getUserSubscription(userId);
 
   if (!data) {
+    await upsertUserSubscription(userId, { plan: "free" });
     return "free";
   }
 
@@ -209,50 +210,66 @@ export async function findUserIdByStripeCustomerId(
   return data?.clerk_user_id ?? null;
 }
 
+
+async function ensureFreeCheckUsageRecord(userId: string): Promise<void> {
+  const supabase = getSupabaseAdminClient();
+
+  const { error } = await supabase
+    .from(checksTable)
+    .upsert(
+      { clerk_user_id: userId, count: 0 },
+      { onConflict: "clerk_user_id", ignoreDuplicates: true },
+    );
+
+  if (error) {
+    throw new Error(`[checks] failed to initialize ${checksTable}: ${error.message}`);
+  }
+}
+
+export async function getFreeCheckUsage(userId: string): Promise<number> {
+  await ensureFreeCheckUsageRecord(userId);
+
+  const supabase = getSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from(checksTable)
+    .select("count")
+    .eq("clerk_user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`[checks] failed to read ${checksTable}: ${error.message}`);
+  }
+
+  return Math.max(0, (data as Pick<ChecksRow, "count"> | null)?.count ?? 0);
+}
+
+type ConsumeFreeCheckRpcRow = {
+  allowed: boolean;
+  count: number;
+};
+
 export async function consumeFreeCheck(userId: string): Promise<{
   allowed: boolean;
   count: number;
-  fallbackUsed: boolean;
 }> {
-  try {
-    const supabase = getSupabaseAdminClient();
+  const supabase = getSupabaseAdminClient();
 
-    const { data, error } = await supabase
-      .from(checksTable)
-      .select("clerk_user_id,count")
-      .eq("clerk_user_id", userId)
-      .maybeSingle();
+  const { data, error } = await supabase.rpc("pressready_consume_free_check", {
+    p_clerk_user_id: userId,
+    p_limit: FREE_CHECK_LIMIT,
+  });
 
-    if (error) {
-      throw new Error(`[checks] failed to read ${checksTable}: ${error.message}`);
-    }
-
-    const currentCount = Math.max(0, (data as ChecksRow | null)?.count ?? 0);
-
-    if (currentCount >= FREE_CHECK_LIMIT) {
-      return { allowed: false, count: currentCount, fallbackUsed: false };
-    }
-
-    const nextCount = currentCount + 1;
-
-    const { error: upsertError } = await supabase
-      .from(checksTable)
-      .upsert({ clerk_user_id: userId, count: nextCount }, { onConflict: "clerk_user_id" });
-
-    if (upsertError) {
-      throw new Error(`[checks] failed to upsert ${checksTable}: ${upsertError.message}`);
-    }
-
-    return { allowed: true, count: nextCount, fallbackUsed: false };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-
-    console.warn("[checks] consume unavailable, using fallback", {
-      table: checksTable,
-      userId,
-      message,
-    });
-
-    return { allowed: true, count: 0, fallbackUsed: true };
+  if (error) {
+    throw new Error(`[checks] failed to consume free check through Supabase RPC: ${error.message}`);
   }
+
+  const rows = data as ConsumeFreeCheckRpcRow[] | null;
+  const result = rows?.[0];
+
+  if (!result) {
+    throw new Error("[checks] Supabase RPC returned no usage result");
+  }
+
+  return { allowed: result.allowed, count: Math.max(0, result.count) };
 }
