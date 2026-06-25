@@ -1,29 +1,37 @@
 import Link from "next/link";
-import PricingClient from "@/app/pricing/pricing-client";
-import UpgradeToProButton from "@/app/pricing/upgrade-to-pro-button";
+
 import { getAuthFromServer } from "@/app/lib/clerk";
+import PricingClient from "@/app/pricing/pricing-client";
+import { getUserPlan, type PlanName } from "@/app/lib/subscription";
 
 export default async function PricingPage() {
   const { userId } = await getAuthFromServer();
 
+  let plan: PlanName = "free";
+
+  if (userId) {
+    try {
+      plan = await getUserPlan(userId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load plan";
+      console.error("[pricing] failed to load plan", { userId, message });
+    }
+  }
+
   return (
     <section className="space-y-6">
-      <h1 className="text-4xl font-bold leading-tight">Pricing</h1>
+      <h1 className="text-3xl font-bold leading-tight sm:text-4xl">Pricing</h1>
       <p className="max-w-2xl text-lg leading-8">
         Choose the plan that fits your team and scale your design review workflow with confidence.
       </p>
 
-      <PricingClient isSignedIn={Boolean(userId)} />
-
-      <div className="pt-2">
-        <UpgradeToProButton isSignedIn={Boolean(userId)} />
-      </div>
+      <PricingClient currentPlan={plan} isSignedIn={Boolean(userId)} />
 
       <div className="flex flex-wrap gap-4 pt-2 text-sm font-semibold uppercase tracking-wider">
-        <Link className="rounded border border-[var(--pressready-gold)] px-4 py-2" href="/">
+        <Link className="inline-flex min-h-11 items-center rounded border border-[var(--pressready-gold)] px-4 py-3" href="/">
           Home
         </Link>
-        <Link className="rounded border border-[var(--pressready-gold)] px-4 py-2" href="/account">
+        <Link className="inline-flex min-h-11 items-center rounded border border-[var(--pressready-gold)] px-4 py-3" href="/account">
           Account
         </Link>
       </div>
