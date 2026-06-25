@@ -4,7 +4,7 @@ import { SignOutButton } from "./sign-out-button";
 import { CheckoutRefresh } from "./checkout-refresh";
 import { SubscriptionCta } from "./subscription-cta";
 import { getAuthFromServer } from "@/app/lib/clerk";
-import { getUserSubscription, isActiveSubscriptionStatus, isPaidPlan } from "@/app/lib/subscription";
+import { getUserSubscription, isActiveSubscriptionStatus, isPaidPlan, upsertUserSubscription } from "@/app/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -14,13 +14,14 @@ export default async function AccountPage() {
   let plan: "free" | "pro" = "free";
   let subscriptionStatus = "none";
   let subscriptionError: string | null = null;
-  let isSubscriptionMissing = false;
 
   if (userId) {
     try {
       const subscription = await getUserSubscription(userId);
       if (!subscription) {
-        isSubscriptionMissing = true;
+        await upsertUserSubscription(userId, { plan: "free" });
+        plan = "free";
+        subscriptionStatus = "none";
       } else {
         plan =
           isPaidPlan(subscription.plan) || isActiveSubscriptionStatus(subscription.stripe_subscription_status)
@@ -45,12 +46,6 @@ export default async function AccountPage() {
           <p className="text-sm opacity-80">User ID: {userId}</p>
           <p className="text-sm opacity-80">Plan: {plan === "pro" ? "Pro" : "Free"}</p>
           <p className="text-sm opacity-80">Subscription status: {subscriptionStatus}</p>
-          {isSubscriptionMissing ? (
-            <p className="text-sm opacity-80">
-              We could not find subscription data yet. If you just upgraded, please refresh in a few
-              seconds.
-            </p>
-          ) : null}
           {subscriptionError ? (
             <p className="text-sm text-red-600">Subscription error: {subscriptionError}</p>
           ) : null}

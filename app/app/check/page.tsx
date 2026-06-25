@@ -171,7 +171,7 @@ export default function DesignCheckPage() {
   const [copied, setCopied] = useState(false);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [plan, setPlan] = useState<"free" | "pro">("free");
-  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [authStatus, setAuthStatus] = useState<"loading" | "signed-out" | "signed-in">("loading");
   const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(0);
 
   const acceptedTypes = useMemo(
@@ -187,6 +187,7 @@ export default function DesignCheckPage() {
       try {
         const response = await fetch("/api/plan", { cache: "no-store" });
         if (!response.ok) {
+          setAuthStatus("loading");
           return;
         }
 
@@ -195,7 +196,7 @@ export default function DesignCheckPage() {
           isSignedIn?: boolean;
           freeCheckUsageCount?: number;
         };
-        setIsSignedIn(Boolean(data.isSignedIn));
+        setAuthStatus(data.isSignedIn ? "signed-in" : "signed-out");
         if (data.plan === "pro") {
           setPlan("pro");
           setFreeCheckUsageCount(0);
@@ -208,7 +209,7 @@ export default function DesignCheckPage() {
         }
       } catch {
         setPlan("free");
-        setIsSignedIn(false);
+        setAuthStatus("loading");
       }
     };
 
@@ -272,10 +273,10 @@ export default function DesignCheckPage() {
       !imageWidthPx ||
       !imageHeightPx ||
       printWidthIn <= 0 ||
-      !isSignedIn ||
+      authStatus !== "signed-in" ||
       (plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT)
     ) {
-      if (!isSignedIn) {
+      if (authStatus === "signed-out") {
         setCheckMessage("Create a free PressReady account to use your 3 free checks.");
       }
       return;
@@ -564,6 +565,7 @@ export default function DesignCheckPage() {
       imageWidthPx &&
       imageHeightPx &&
       printWidthIn > 0 &&
+      authStatus !== "loading" &&
       !isFreeLimitReached,
   );
 

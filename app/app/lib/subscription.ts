@@ -179,6 +179,7 @@ export async function getUserPlan(userId: string): Promise<PlanName> {
   const data = await getUserSubscription(userId);
 
   if (!data) {
+    await upsertUserSubscription(userId, { plan: "free" });
     return "free";
   }
 
@@ -209,7 +210,25 @@ export async function findUserIdByStripeCustomerId(
   return data?.clerk_user_id ?? null;
 }
 
+
+async function ensureFreeCheckUsageRecord(userId: string): Promise<void> {
+  const supabase = getSupabaseAdminClient();
+
+  const { error } = await supabase
+    .from(checksTable)
+    .upsert(
+      { clerk_user_id: userId, count: 0 },
+      { onConflict: "clerk_user_id", ignoreDuplicates: true },
+    );
+
+  if (error) {
+    throw new Error(`[checks] failed to initialize ${checksTable}: ${error.message}`);
+  }
+}
+
 export async function getFreeCheckUsage(userId: string): Promise<number> {
+  await ensureFreeCheckUsageRecord(userId);
+
   const supabase = getSupabaseAdminClient();
 
   const { data, error } = await supabase
