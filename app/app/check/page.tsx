@@ -171,6 +171,7 @@ export default function DesignCheckPage() {
   const [copied, setCopied] = useState(false);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [plan, setPlan] = useState<"free" | "pro">("free");
+  const [authStatus, setAuthStatus] = useState<"loading" | "signed-out" | "signed-in">("loading");
   const [freeCheckUsageCount, setFreeCheckUsageCount] = useState(0);
 
   const acceptedTypes = useMemo(
@@ -186,18 +187,29 @@ export default function DesignCheckPage() {
       try {
         const response = await fetch("/api/plan", { cache: "no-store" });
         if (!response.ok) {
+          setAuthStatus("loading");
           return;
         }
 
-        const data = (await response.json()) as { plan?: "free" | "pro" };
+        const data = (await response.json()) as {
+          plan?: "free" | "pro";
+          isSignedIn?: boolean;
+          freeCheckUsageCount?: number;
+        };
+        setAuthStatus(data.isSignedIn ? "signed-in" : "signed-out");
         if (data.plan === "pro") {
           setPlan("pro");
+          setFreeCheckUsageCount(0);
           return;
         }
 
         setPlan("free");
+        if (typeof data.freeCheckUsageCount === "number") {
+          setFreeCheckUsageCount(data.freeCheckUsageCount);
+        }
       } catch {
         setPlan("free");
+        setAuthStatus("loading");
       }
     };
 
@@ -261,8 +273,49 @@ export default function DesignCheckPage() {
       !imageWidthPx ||
       !imageHeightPx ||
       printWidthIn <= 0 ||
-      (plan !== "pro" && freeCheckUsageCount >= FREE_CHECK_LIMIT)
+      authStatus !== "signed-in"
     ) {
+      if (authStatus === "signed-out") {
+        setCheckMessage("Create a free PressReady account to use your 3 free checks.");
+      }
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/checks/consume", {
+        method: "POST",
+        cache: "no-store",
+      });
+
+      const payload = (await response.json()) as {
+        allowed?: boolean;
+        count?: number;
+        message?: string;
+        plan?: "free" | "pro";
+      };
+
+      if (response.status === 401) {
+        setCheckMessage(payload.message ?? "Create a free PressReady account to use your 3 free checks.");
+        router.push("/sign-in");
+        return;
+      }
+
+      if (!response.ok || payload.allowed === false) {
+        setCheckMessage(
+          payload.message ?? "You’ve used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.",
+        );
+        return;
+      }
+
+      if (payload.plan === "pro") {
+        setPlan("pro");
+        setFreeCheckUsageCount(0);
+      } else if (typeof payload.count === "number") {
+        setPlan("free");
+        setFreeCheckUsageCount(payload.count);
+      }
+    } catch {
+      setCheckMessage("Unable to run your check right now. Please try again.");
       return;
     }
 
@@ -425,40 +478,6 @@ export default function DesignCheckPage() {
 
     const nextResults = [...preScoreResults, scoreCard];
 
-    if (plan !== "pro") {
-      try {
-        const response = await fetch("/api/checks/consume", {
-          method: "POST",
-          cache: "no-store",
-        });
-
-        const payload = (await response.json()) as {
-          allowed?: boolean;
-          count?: number;
-          message?: string;
-        };
-
-        if (response.status === 401) {
-          setCheckMessage("Please sign in to run your design check.");
-          router.push('/sign-in');
-          return;
-        }
-
-        if (!response.ok || payload.allowed === false) {
-          setCheckMessage(
-            payload.message ?? "You’ve used your 3 free design checks. Upgrade to Pro for unlimited DTF readiness checks, saved reports, and faster print prep.",
-          );
-          return;
-        }
-
-        if (typeof payload.count === "number") {
-          setFreeCheckUsageCount(payload.count);
-        }
-      } catch {
-        setCheckMessage("Unable to run your check right now. Please try again.");
-        return;
-      }
-    }
 
     setResults(nextResults);
     saveReport(nextResults);
@@ -549,7 +568,7 @@ export default function DesignCheckPage() {
       imageWidthPx &&
       imageHeightPx &&
       printWidthIn > 0 &&
-      !isFreeLimitReached,
+      authStatus !== "loading"
   );
 
   return (

@@ -21,3 +21,45 @@ create table if not exists public.checks (
   count integer not null default 0 check (count >= 0),
   updated_at timestamptz not null default now()
 );
+
+create or replace function public.pressready_consume_free_check(
+  p_clerk_user_id text,
+  p_limit integer default 3
+)
+returns table(allowed boolean, count integer)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_count integer;
+begin
+  insert into public.checks (clerk_user_id, count, updated_at)
+  values (p_clerk_user_id, 0, now())
+  on conflict (clerk_user_id) do nothing;
+
+  select checks.count
+    into current_count
+    from public.checks
+   where checks.clerk_user_id = p_clerk_user_id
+   for update;
+
+  if current_count >= p_limit then
+    allowed := false;
+    count := current_count;
+    return next;
+    return;
+  end if;
+
+  current_count := current_count + 1;
+
+  update public.checks
+     set count = current_count,
+         updated_at = now()
+   where clerk_user_id = p_clerk_user_id;
+
+  allowed := true;
+  count := current_count;
+  return next;
+end;
+$$;
