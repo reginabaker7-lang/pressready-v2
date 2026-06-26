@@ -11,7 +11,7 @@ export async function POST() {
 
   if (!userId) {
     return NextResponse.json(
-      { allowed: false, message: "Sign in required." },
+      { allowed: false, message: "Create a free PressReady account to use your 3 free checks." },
       { status: 401 },
     );
   }
@@ -42,7 +42,6 @@ export async function POST() {
         allowed: true,
         plan: "free",
         count: result.count,
-        fallbackUsed: result.fallbackUsed,
       },
       { status: 200 },
     );
