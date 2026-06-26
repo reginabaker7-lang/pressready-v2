@@ -183,11 +183,11 @@ export async function getUserPlan(userId: string): Promise<PlanName> {
     return "free";
   }
 
-  if (isPaidPlan(data.plan)) {
+  if (data.plan === "studio" || isActiveSubscriptionStatus(data.stripe_subscription_status)) {
     return "pro";
   }
 
-  return planFromStatus(data.stripe_subscription_status);
+  return "free";
 }
 
 export async function findUserIdByStripeCustomerId(

@@ -4,7 +4,7 @@ import { SignOutButton } from "./sign-out-button";
 import { CheckoutRefresh } from "./checkout-refresh";
 import { SubscriptionCta } from "./subscription-cta";
 import { getAuthFromServer } from "@/app/lib/clerk";
-import { getUserSubscription, isActiveSubscriptionStatus, isPaidPlan, upsertUserSubscription } from "@/app/lib/subscription";
+import { getUserSubscription, isActiveSubscriptionStatus, upsertUserSubscription } from "@/app/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ export default async function AccountPage() {
         subscriptionStatus = "none";
       } else {
         plan =
-          isPaidPlan(subscription.plan) || isActiveSubscriptionStatus(subscription.stripe_subscription_status)
+          subscription.plan === "studio" || isActiveSubscriptionStatus(subscription.stripe_subscription_status)
             ? "pro"
             : "free";
         subscriptionStatus = subscription.stripe_subscription_status ?? "none";
