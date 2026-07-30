@@ -8,6 +8,8 @@ import { getUserSubscription, isActiveSubscriptionStatus, isPaidPlan } from "@/a
 
 export const dynamic = "force-dynamic";
 
+import { SignOutControl } from "./sign-out-control";
+
 export default async function AccountPage() {
   const { userId } = await getAuthFromServer();
 
@@ -64,6 +66,10 @@ export default async function AccountPage() {
               History
             </Link>
             <SignOutButton />
+          </div>
+
+          <div className="pt-2">
+            <SignOutControl />
           </div>
         </div>
       ) : (
